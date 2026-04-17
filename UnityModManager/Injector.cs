@@ -160,8 +160,13 @@ namespace UnityModManagerNet
             if (!UnityModManager.UI.Load())
             {
                 UnityModManager.Logger.Error($"Can't load UI.");
+                return;
             }
-            UnityModManager.UI.Instance.FirstLaunch();
+            if (!UnityModManager.UI.Instance)
+            {
+                UnityModManager.Logger.Error("UnityModManager.UI does not exist.");
+                return;
+            }
         }
 
         static void Prefix_Start()
