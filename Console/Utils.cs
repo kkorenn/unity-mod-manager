@@ -12,6 +12,8 @@ namespace UnityModManagerNet.ConsoleInstaller
 {
     public class Utils
     {
+        private static bool? isMacPlatform;
+
         static Utils()
         {
 
@@ -232,12 +234,27 @@ namespace UnityModManagerNet.ConsoleInstaller
 
         public static bool IsPlatform(OSPlatform platform)
         {
-            return RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+            if (platform == OSPlatform.Windows)
+            {
+                return !IsUnixPlatform();
+            }
+
+            if (platform == OSPlatform.OSX)
+            {
+                return IsMacPlatform();
+            }
+
+            if (platform == OSPlatform.Linux)
+            {
+                return IsLinuxPlatform();
+            }
+
+            return false;
         }
 
         public static bool IsWindowsPlatform()
         {
-            return IsPlatform(OSPlatform.Windows);
+            return !IsUnixPlatform();
         }
 
         public static bool IsUnixPlatform()
@@ -248,14 +265,51 @@ namespace UnityModManagerNet.ConsoleInstaller
 
         public static bool IsMacPlatform()
         {
+            if (isMacPlatform.HasValue)
+            {
+                return isMacPlatform.Value;
+            }
+
             int p = (int)Environment.OSVersion.Platform;
-            return (p == 6);
+            var result = (p == 6);
+
+            if (!result && (p == 4 || p == 128))
+            {
+                result = IsDarwinKernel();
+            }
+
+            isMacPlatform = result;
+            return result;
         }
 
         public static bool IsLinuxPlatform()
         {
             int p = (int)Environment.OSVersion.Platform;
-            return (p == 4) || (p == 128);
+            return ((p == 4) || (p == 128)) && !IsMacPlatform();
+        }
+
+        private static bool IsDarwinKernel()
+        {
+            try
+            {
+                using (var process = new Process())
+                {
+                    process.StartInfo.UseShellExecute = false;
+                    process.StartInfo.RedirectStandardOutput = true;
+                    process.StartInfo.CreateNoWindow = true;
+                    process.StartInfo.FileName = "uname";
+                    process.StartInfo.Arguments = "-s";
+                    process.Start();
+                    var output = process.StandardOutput.ReadToEnd();
+                    process.WaitForExit();
+
+                    return output.Trim().Equals("Darwin", StringComparison.OrdinalIgnoreCase);
+                }
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         public static bool MakeBackup(string path)
@@ -379,8 +433,95 @@ namespace UnityModManagerNet.ConsoleInstaller
             return true;
         }
 
-        public static string FindGameFolder(string str)
+        public static string NormalizeGamePath(string path)
         {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return path;
+            }
+
+            var normalized = path.Trim().Trim('"', '\'');
+            var root = Path.GetPathRoot(normalized);
+            if (normalized.Length > 1 && !string.Equals(normalized, root, StringComparison.OrdinalIgnoreCase))
+            {
+                normalized = normalized.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            }
+
+            return normalized;
+        }
+
+        public static bool IsMacAppBundle(string path)
+        {
+            var normalized = NormalizeGamePath(path);
+            return !string.IsNullOrEmpty(normalized)
+                && normalized.EndsWith(".app", StringComparison.OrdinalIgnoreCase)
+                && Directory.Exists(normalized);
+        }
+
+        public static string ResolveMacGamePath(string path, params string[] appNameCandidates)
+        {
+            var normalizedPath = NormalizeGamePath(path);
+            if (!IsMacPlatform() || string.IsNullOrEmpty(normalizedPath) || !Directory.Exists(normalizedPath))
+            {
+                return normalizedPath;
+            }
+
+            if (IsMacAppBundle(normalizedPath))
+            {
+                return normalizedPath;
+            }
+
+            var appBundles = Directory.GetDirectories(normalizedPath, "*.app", SearchOption.TopDirectoryOnly);
+            if (appBundles.Length == 0)
+            {
+                return normalizedPath;
+            }
+
+            var appNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var item in appNameCandidates ?? new string[0])
+            {
+                if (string.IsNullOrWhiteSpace(item))
+                {
+                    continue;
+                }
+
+                var name = Path.GetFileNameWithoutExtension(NormalizeGamePath(item));
+                if (!string.IsNullOrEmpty(name))
+                {
+                    appNames.Add(name);
+                }
+            }
+
+            foreach (var appBundle in appBundles)
+            {
+                if (appNames.Contains(Path.GetFileNameWithoutExtension(appBundle)))
+                {
+                    return appBundle;
+                }
+            }
+
+            return appBundles.Length == 1 ? appBundles[0] : normalizedPath;
+        }
+
+        public static string FindGameFolder(params string[] names)
+        {
+            if (names == null || names.Length == 0)
+            {
+                return null;
+            }
+
+            var candidates = names
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Select(x => Path.GetFileNameWithoutExtension(NormalizeGamePath(x)))
+                .Where(x => !string.IsNullOrEmpty(x))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            if (candidates.Length == 0)
+            {
+                return null;
+            }
+
             string[] disks = new string[] { @"C:\", @"D:\", @"E:\", @"F:\" };
             string[] roots = new string[] { "Games", "Program files", "Program files (x86)", "" };
             string[] folders = new string[] { @"Steam\SteamApps\common", @"GoG Galaxy\Games", "" };
@@ -396,21 +537,22 @@ namespace UnityModManagerNet.ConsoleInstaller
                 {
                     foreach (var folder in folders)
                     {
-                        var path = Path.Combine(disk, root, folder, str);
-                        if (Directory.Exists(path))
+                        foreach (var candidate in candidates)
                         {
+                            var path = Path.Combine(disk, root, folder, candidate);
+                            if (Directory.Exists(path))
+                            {
+                                return ResolveMacGamePath(path, candidates);
+                            }
+
                             if (Utils.IsMacPlatform())
                             {
-                                foreach (var dir in Directory.GetDirectories(path))
+                                var appPath = Path.Combine(disk, root, folder, $"{candidate}.app");
+                                if (Directory.Exists(appPath))
                                 {
-                                    if (dir.EndsWith(".app"))
-                                    {
-                                        path = Path.Combine(path, dir);
-                                        break;
-                                    }
+                                    return appPath;
                                 }
                             }
-                            return path;
                         }
                     }
                 }
@@ -420,12 +562,30 @@ namespace UnityModManagerNet.ConsoleInstaller
 
         public static string FindManagedFolder(string path)
         {
+            path = NormalizeGamePath(path);
+            if (string.IsNullOrEmpty(path) || !Directory.Exists(path))
+            {
+                return null;
+            }
+
             if (Utils.IsMacPlatform())
             {
-                var dir = $"{path}/Contents/Resources/Data/Managed";
-                if (Directory.Exists(dir))
+                var appPath = ResolveMacGamePath(path);
+                if (IsMacAppBundle(appPath))
                 {
-                    return dir;
+                    var dirs = new[]
+                    {
+                        Path.Combine(appPath, "Contents", "Resources", "Data", "Managed"),
+                        Path.Combine(appPath, "Contents", "Data", "Managed")
+                    };
+
+                    foreach (var dir in dirs)
+                    {
+                        if (Directory.Exists(dir))
+                        {
+                            return dir;
+                        }
+                    }
                 }
             }
 

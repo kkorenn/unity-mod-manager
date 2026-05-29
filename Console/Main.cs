@@ -323,9 +323,21 @@ namespace UnityModManagerNet.ConsoleInstaller
         {
             ToBeginning:
             gamePath = "";
+            var gameFolderCandidates = new[]
+            {
+                selectedGame.Folder,
+                selectedGame.Name,
+                Path.GetFileNameWithoutExtension(selectedGame.GameExe)
+            };
+
+            if (!string.IsNullOrEmpty(selectedGameParams.Path))
+            {
+                selectedGameParams.Path = Utils.ResolveMacGamePath(selectedGameParams.Path, gameFolderCandidates);
+            }
+
             if (string.IsNullOrEmpty(selectedGameParams.Path) || !Directory.Exists(selectedGameParams.Path))
             {
-                var result = Utils.FindGameFolder(selectedGame.Folder);
+                var result = Utils.FindGameFolder(gameFolderCandidates);
                 if (string.IsNullOrEmpty(result))
                 {
                     Log.Print($"Game folder '{selectedGame.Folder}' not found.");
@@ -354,9 +366,9 @@ namespace UnityModManagerNet.ConsoleInstaller
                 SelectGameFolder();
             }
 
-            if (Utils.IsMacPlatform() && !selectedGameParams.Path.EndsWith(".app"))
+            if (Utils.IsMacPlatform() && !Utils.IsMacAppBundle(selectedGameParams.Path))
             {
-                Log.Print("Select the game folder where name ending with '.app'.");
+                Log.Print("Select a macOS app bundle (*.app), or a folder that contains the game app bundle.");
                 SelectGameFolder();
             }
 
@@ -370,7 +382,8 @@ namespace UnityModManagerNet.ConsoleInstaller
 
             Utils.TryParseEntryPoint(selectedGame.EntryPoint, out var assemblyName);
 
-            gamePath = selectedGameParams.Path;
+            gamePath = Utils.ResolveMacGamePath(selectedGameParams.Path, gameFolderCandidates);
+            selectedGameParams.Path = gamePath;
             if (File.Exists(Path.Combine(gamePath, "GameAssembly.dll")))
             {
                 Log.Print("This game version (IL2CPP) is not supported.");
@@ -766,7 +779,7 @@ namespace UnityModManagerNet.ConsoleInstaller
 
         static void SelectGameFolder()
         {
-            Log.Print("Enter the full path to the game folder, for example С:\\Program Files\\Steam\\steamapps\\common\\YourGame\\");
+            Log.Print("Enter the full path to the game folder (on macOS, use the *.app path or its parent folder).");
             ReadAgain:
             Log.Print("Path: ");
             var l = Console.ReadLine();
@@ -777,6 +790,7 @@ namespace UnityModManagerNet.ConsoleInstaller
             }
             l = l.Replace("\"", string.Empty);
             l = l.Replace("'", string.Empty);
+            l = Utils.NormalizeGamePath(l);
             if (!Directory.Exists(l))
             {
                 Log.Print($"Path '{l}' does not exist.");
@@ -787,7 +801,7 @@ namespace UnityModManagerNet.ConsoleInstaller
                 goto ReadAgain;
             }
 
-            selectedGameParams.Path = l;
+            selectedGameParams.Path = Utils.ResolveMacGamePath(l, selectedGame.Folder, selectedGame.Name, Path.GetFileNameWithoutExtension(selectedGame.GameExe));
         }
 
         static bool TestWritePermissions()

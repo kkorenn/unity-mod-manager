@@ -379,9 +379,21 @@ namespace UnityModManagerNet.Installer
             }
 
             gamePath = "";
+            var gameFolderCandidates = new[]
+            {
+                selectedGame.Folder,
+                selectedGame.Name,
+                Path.GetFileNameWithoutExtension(selectedGame.GameExe)
+            };
+
+            if (!string.IsNullOrEmpty(selectedGameParams.Path))
+            {
+                selectedGameParams.Path = Utils.ResolveMacGamePath(selectedGameParams.Path, gameFolderCandidates);
+            }
+
             if (string.IsNullOrEmpty(selectedGameParams.Path) || !Directory.Exists(selectedGameParams.Path))
             {
-                var result = Utils.FindGameFolder(selectedGame.Folder);
+                var result = Utils.FindGameFolder(gameFolderCandidates);
                 if (string.IsNullOrEmpty(result))
                 {
                     InactiveForm();
@@ -402,16 +414,17 @@ namespace UnityModManagerNet.Installer
                 return;
             }
 
-            if (Utils.IsMacPlatform() && !selectedGameParams.Path.EndsWith(".app"))
+            if (Utils.IsMacPlatform() && !Utils.IsMacAppBundle(selectedGameParams.Path))
             {
                 InactiveForm();
-                Log.Print("Select the game folder where name ending with '.app'.");
+                Log.Print("Select a macOS app bundle (*.app), or a folder that contains the game app bundle.");
                 return;
             }
 
             Utils.TryParseEntryPoint(selectedGame.EntryPoint, out var assemblyName);
 
-            gamePath = selectedGameParams.Path;
+            gamePath = Utils.ResolveMacGamePath(selectedGameParams.Path, gameFolderCandidates);
+            selectedGameParams.Path = gamePath;
             if (File.Exists(Path.Combine(gamePath, "UnityPlayer.dll")))
                 unityPlayerPath = Path.Combine(gamePath, "UnityPlayer.dll");
             btnOpenFolder.ForeColor = System.Drawing.Color.Black;

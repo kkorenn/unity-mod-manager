@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -8,6 +9,8 @@ namespace UnityModManagerNet
 {
     public partial class UnityModManager
     {
+        private static bool? isMacPlatform;
+
         public static void OpenUnityFileLog()
         {
             new Thread(() =>
@@ -82,14 +85,49 @@ namespace UnityModManagerNet
 
         public static bool IsMacPlatform()
         {
+            if (isMacPlatform.HasValue)
+            {
+                return isMacPlatform.Value;
+            }
+
             int p = (int)Environment.OSVersion.Platform;
-            return (p == 6);
+            var result = (p == 6);
+
+            if (!result && (p == 4 || p == 128))
+            {
+                result = IsDarwinKernel();
+            }
+
+            isMacPlatform = result;
+            return result;
         }
 
         public static bool IsLinuxPlatform()
         {
             int p = (int)Environment.OSVersion.Platform;
-            return (p == 4) || (p == 128);
+            return (p == 4 || p == 128) && !IsMacPlatform();
+        }
+
+        private static bool IsDarwinKernel()
+        {
+            try
+            {
+                var process = new Process();
+                process.StartInfo.UseShellExecute = false;
+                process.StartInfo.RedirectStandardOutput = true;
+                process.StartInfo.CreateNoWindow = true;
+                process.StartInfo.FileName = "uname";
+                process.StartInfo.Arguments = "-s";
+                process.Start();
+                var output = process.StandardOutput.ReadToEnd();
+                process.WaitForExit();
+
+                return output.Trim().Equals("Darwin", StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
         }
     }
 

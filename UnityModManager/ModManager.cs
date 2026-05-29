@@ -138,20 +138,7 @@ namespace UnityModManagerNet
             Params = Param.Load();
             InstallerParams = InstallerParam.Load();
 
-            modsPath = Path.Combine(Environment.CurrentDirectory, Config.ModsDirectory);
-            if (!Directory.Exists(modsPath))
-            {
-                var modsPath2 = Path.Combine(Path.GetDirectoryName(Environment.CurrentDirectory), Config.ModsDirectory);
-
-                if (Directory.Exists(modsPath2))
-                {
-                    modsPath = modsPath2;
-                }
-                else
-                {
-                    Directory.CreateDirectory(modsPath);
-                }
-            }
+            modsPath = ResolveModsPath();
 
             Logger.Log($"Mods path: {modsPath}.");
             OldModsPath = modsPath;
@@ -161,6 +148,79 @@ namespace UnityModManagerNet
             AppDomain.CurrentDomain.AssemblyResolve += CurrentDomain_AssemblyResolve;
 
             return true;
+        }
+
+        private static string ResolveModsPath()
+        {
+            var currentDir = Environment.CurrentDirectory;
+            var candidates = new List<string>();
+
+            if (IsMacPlatform())
+            {
+                var appBundlePath = GetMacAppBundlePath(currentDir);
+                if (!string.IsNullOrEmpty(appBundlePath))
+                {
+                    candidates.Add(Path.Combine(appBundlePath, Config.ModsDirectory));
+
+                    var appParent = Path.GetDirectoryName(appBundlePath);
+                    if (!string.IsNullOrEmpty(appParent))
+                    {
+                        candidates.Add(Path.Combine(appParent, Config.ModsDirectory));
+                    }
+                }
+            }
+
+            candidates.Add(Path.Combine(currentDir, Config.ModsDirectory));
+
+            var parent = Path.GetDirectoryName(currentDir);
+            if (!string.IsNullOrEmpty(parent))
+            {
+                candidates.Add(Path.Combine(parent, Config.ModsDirectory));
+            }
+
+            var uniqueCandidates = candidates
+                .Where(x => !string.IsNullOrEmpty(x))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            foreach (var candidate in uniqueCandidates)
+            {
+                if (Directory.Exists(candidate))
+                {
+                    return candidate;
+                }
+            }
+
+            var createPath = uniqueCandidates.FirstOrDefault() ?? Path.Combine(currentDir, Config.ModsDirectory);
+            Directory.CreateDirectory(createPath);
+            return createPath;
+        }
+
+        private static string GetMacAppBundlePath(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+            {
+                return null;
+            }
+
+            try
+            {
+                var current = new DirectoryInfo(Path.GetFullPath(path));
+                while (current != null)
+                {
+                    if (current.Name.EndsWith(".app", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return current.FullName;
+                    }
+
+                    current = current.Parent;
+                }
+            }
+            catch
+            {
+            }
+
+            return null;
         }
 
         private static Assembly CurrentDomain_AssemblyResolve(object sender, ResolveEventArgs args)
@@ -232,6 +292,8 @@ namespace UnityModManagerNet
             Logger.Log($"Starting.");
 
             started = true;
+
+            MacQolBuiltin.Initialize();
 
             ParseGameVersion();
 

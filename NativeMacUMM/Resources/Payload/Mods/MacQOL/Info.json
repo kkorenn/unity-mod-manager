@@ -1,0 +1,9 @@
+{
+  "Id": "MacQOL",
+  "DisplayName": "Mac QOL",
+  "Author": "Codex",
+  "Version": "1.0.0",
+  "ManagerVersion": "0.22.14.0",
+  "AssemblyName": "MacQOL.dll",
+  "EntryMethod": "MacQOL.Main.Load"
+}

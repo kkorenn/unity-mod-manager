@@ -56,6 +56,7 @@ namespace UnityModManagerNet
 
             private bool mFirstLaunched = false;
             private bool mInit = false;
+            private bool mUIResourcesReady = false;
 
             private bool mOpened = false;
             public bool Opened { get { return mOpened; } }
@@ -88,7 +89,7 @@ namespace UnityModManagerNet
                 mExpectedWindowSize = mWindowSize;
                 mUIScale = Mathf.Clamp(Params.UIScale, 0.5f, 5f);
                 mExpectedUIScale = mUIScale;
-
+                
                 mOSfonts = Font.GetOSInstalledFontNames();
                 if (mOSfonts.Length == 0)
                 {
@@ -104,15 +105,51 @@ namespace UnityModManagerNet
 
                     mSelectedFont = Array.IndexOf(mOSfonts, Params.UIFont);
                 }
+            }
 
-                var harmony = new HarmonyLib.Harmony("UnityModManager.UI");
-                var original = typeof(Screen).GetMethod("set_lockCursor");
-                var prefix = typeof(Screen_lockCursor_Patch).GetMethod("Prefix", BindingFlags.Static | BindingFlags.NonPublic);
-                harmony.Patch(original, new HarmonyMethod(prefix));
+            private void TryInitializeUIResources()
+            {
+                if (mUIResourcesReady)
+                {
+                    return;
+                }
+
+                Textures.Init();
+                mUIResourcesReady = true;
+
+                try
+                {
+                    var harmony = new HarmonyLib.Harmony("UnityModManager.UI");
+                    var original = typeof(Screen).GetMethod("set_lockCursor");
+                    var prefix = typeof(Screen_lockCursor_Patch).GetMethod("Prefix", BindingFlags.Static | BindingFlags.NonPublic);
+                    harmony.Patch(original, new HarmonyMethod(prefix));
+                }
+                catch (Exception e)
+                {
+                    Logger.LogException("UI.HarmonyPatch", e);
+                }
+            }
+
+            private bool CanInitializeUIResources()
+            {
+                try
+                {
+                    return Screen.width > 0
+                        && Screen.height > 0
+                        && SystemInfo.graphicsDeviceType != UnityEngine.Rendering.GraphicsDeviceType.Null;
+                }
+                catch
+                {
+                    return false;
+                }
             }
 
             private void Start()
             {
+                if (CanInitializeUIResources())
+                {
+                    TryInitializeUIResources();
+                }
                 CalculateWindowPos();
                 if (string.IsNullOrEmpty(Config.UIStartingPoint))
                 {
@@ -133,6 +170,24 @@ namespace UnityModManagerNet
 
             private void Update()
             {
+                if (!mUIResourcesReady)
+                {
+                    if (!CanInitializeUIResources())
+                    {
+                        return;
+                    }
+
+                    try
+                    {
+                        TryInitializeUIResources();
+                    }
+                    catch (Exception e)
+                    {
+                        Logger.LogException("TryInitializeUIResources", e);
+                        return;
+                    }
+                }
+
                 if (Opened)
                 {
                     Cursor.lockState = CursorLockMode.None;
@@ -241,8 +296,6 @@ namespace UnityModManagerNet
 
             private void PrepareGUI()
             {
-                Textures.Init();
-
                 window = new GUIStyle();
                 window.name = "umm window";
                 window.normal.background = Textures.Window;
@@ -1171,4 +1224,3 @@ namespace UnityModManagerNet
         }
     }
 }
-
