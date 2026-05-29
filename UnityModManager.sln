@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnityModManager", "UnityMod
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Console", "Console\Console.csproj", "{7151CE06-904E-485D-8BC3-A7174A9D5D29}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MacTuiInstaller", "MacTuiInstaller\MacTuiInstaller.csproj", "{3E9B5F8F-AB59-4C05-8A48-FC286BDCC616}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +35,10 @@ Global
 		{7151CE06-904E-485D-8BC3-A7174A9D5D29}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7151CE06-904E-485D-8BC3-A7174A9D5D29}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7151CE06-904E-485D-8BC3-A7174A9D5D29}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3E9B5F8F-AB59-4C05-8A48-FC286BDCC616}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3E9B5F8F-AB59-4C05-8A48-FC286BDCC616}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3E9B5F8F-AB59-4C05-8A48-FC286BDCC616}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3E9B5F8F-AB59-4C05-8A48-FC286BDCC616}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

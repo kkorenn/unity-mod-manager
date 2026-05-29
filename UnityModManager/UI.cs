@@ -88,8 +88,7 @@ namespace UnityModManagerNet
                 mExpectedWindowSize = mWindowSize;
                 mUIScale = Mathf.Clamp(Params.UIScale, 0.5f, 5f);
                 mExpectedUIScale = mUIScale;
-                Textures.Init();
-                
+
                 mOSfonts = Font.GetOSInstalledFontNames();
                 if (mOSfonts.Length == 0)
                 {
@@ -242,6 +241,8 @@ namespace UnityModManagerNet
 
             private void PrepareGUI()
             {
+                Textures.Init();
+
                 window = new GUIStyle();
                 window.name = "umm window";
                 window.normal.background = Textures.Window;
@@ -864,7 +865,7 @@ namespace UnityModManagerNet
                     case "Logs":
                         {
                             var scrollToBottom = false;
-                            if (Event.current.type == EventType.repaint)
+                            if (Event.current.type == EventType.Repaint)
                             {
                                 scrollToBottom = mScrollPositionMax == mScrollPosition[tabId];
                             }
@@ -881,7 +882,7 @@ namespace UnityModManagerNet
                             GUILayout.EndVertical();
 
                             var verticalHeight = 0f;
-                            if (Event.current.type == EventType.repaint)
+                            if (Event.current.type == EventType.Repaint)
                             {
                                 Rect r = GUILayoutUtility.GetLastRect();
                                 verticalHeight = r.height + r.y * 2;
@@ -889,7 +890,7 @@ namespace UnityModManagerNet
 
                             GUILayout.EndScrollView();
 
-                            if (Event.current.type == EventType.repaint)
+                            if (Event.current.type == EventType.Repaint)
                             {
                                 Rect r = GUILayoutUtility.GetLastRect();
                                 mScrollPositionMax = new Vector2(0, verticalHeight - r.height);

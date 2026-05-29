@@ -1,0 +1,1079 @@
+using System.Diagnostics;
+using System.IO.Compression;
+using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using System.Text;
+using System.Xml.Linq;
+using dnlib.DotNet;
+using dnlib.DotNet.Emit;
+using DnMethodAttributes = dnlib.DotNet.MethodAttributes;
+using DnMethodImplAttributes = dnlib.DotNet.MethodImplAttributes;
+using DnTypeAttributes = dnlib.DotNet.TypeAttributes;
+
+namespace AdoUmmMac;
+
+internal static class Program
+{
+    private const string ToolName = "ADOFAI Unity Mod Manager native mac TUI";
+    private const string OfficialPayloadUrl = "https://www.dropbox.com/s/wz8x8e4onjdfdbm/UnityModManager.zip?dl=1";
+
+    private static readonly EntryPointInfo EntryPoint = new(
+        "UnityEngine.CoreModule.dll",
+        "UnityEngine.MonoBehaviour",
+        ".cctor",
+        InsertPlace.Before);
+
+    private static readonly string[] PayloadFiles =
+    [
+        "UnityModManager.dll",
+        "UnityModManager.xml",
+        "0Harmony.dll",
+        "dnlib.dll",
+        "System.Xml.dll"
+    ];
+
+    public static async Task<int> Main(string[] args)
+    {
+        Console.OutputEncoding = Encoding.UTF8;
+        var options = CliOptions.Parse(args);
+
+        if (options.Help)
+        {
+            PrintHelp();
+            return 0;
+        }
+
+        if (!OperatingSystem.IsMacOS())
+        {
+            Fail("This installer is macOS-only.");
+            return 1;
+        }
+
+        if (RuntimeInformation.ProcessArchitecture != Architecture.Arm64)
+        {
+            Fail($"Process architecture is {RuntimeInformation.ProcessArchitecture}; expected Arm64. Use the osx-arm64 publish.");
+            return 1;
+        }
+
+        try
+        {
+            var layout = GameLayout.Detect(options.GamePath);
+            if (layout is null)
+            {
+                Fail("ADOFAI was not found. Pass --game \"/path/to/ADanceOfFireAndIce.app\".");
+                return 1;
+            }
+
+            var installer = new Installer(layout);
+
+            if (options.Status)
+            {
+                PrintStatus(layout, installer.ReadStatus());
+                return 0;
+            }
+
+            if (options.Install)
+            {
+                await installer.InstallAsync(options.ForcePayload, options.Yes);
+                PrintStatus(layout, installer.ReadStatus());
+                return 0;
+            }
+
+            if (options.Remove)
+            {
+                installer.RemoveHook(options.Yes);
+                PrintStatus(layout, installer.ReadStatus());
+                return 0;
+            }
+
+            if (options.Restore)
+            {
+                installer.RestoreOriginal(options.Yes);
+                PrintStatus(layout, installer.ReadStatus());
+                return 0;
+            }
+
+            await RunTuiAsync(layout, installer);
+            return 0;
+        }
+        catch (OperationCanceledException)
+        {
+            return 130;
+        }
+        catch (Exception ex)
+        {
+            Fail(ex.Message);
+            return 1;
+        }
+    }
+
+    private static async Task RunTuiAsync(GameLayout layout, Installer installer)
+    {
+        while (true)
+        {
+            Console.Clear();
+            Header();
+            PrintStatus(layout, installer.ReadStatus());
+            Console.WriteLine();
+            Console.WriteLine("1. Install / repair hook");
+            Console.WriteLine("2. Force refresh UMM payload");
+            Console.WriteLine("3. Remove hook only");
+            Console.WriteLine("4. Restore original UnityEngine.CoreModule.dll");
+            Console.WriteLine("5. Show UMM log tail");
+            Console.WriteLine("6. Quit");
+            Console.WriteLine();
+            Console.Write("Choice: ");
+
+            switch ((Console.ReadLine() ?? string.Empty).Trim())
+            {
+                case "1":
+                    await installer.InstallAsync(forcePayload: false, assumeYes: false);
+                    Pause();
+                    break;
+                case "2":
+                    await installer.InstallAsync(forcePayload: true, assumeYes: false);
+                    Pause();
+                    break;
+                case "3":
+                    installer.RemoveHook(assumeYes: false);
+                    Pause();
+                    break;
+                case "4":
+                    installer.RestoreOriginal(assumeYes: false);
+                    Pause();
+                    break;
+                case "5":
+                    PrintLogTail(layout);
+                    Pause();
+                    break;
+                case "6":
+                case "q":
+                case "Q":
+                    return;
+            }
+        }
+    }
+
+    private static void PrintHelp()
+    {
+        Header();
+        Console.WriteLine("Usage:");
+        Console.WriteLine("  adofai-umm                  open TUI");
+        Console.WriteLine("  adofai-umm --status");
+        Console.WriteLine("  adofai-umm --install [--yes] [--force-payload]");
+        Console.WriteLine("  adofai-umm --remove [--yes]");
+        Console.WriteLine("  adofai-umm --restore [--yes]");
+        Console.WriteLine("  adofai-umm --game \"/path/to/ADanceOfFireAndIce.app\"");
+        Console.WriteLine();
+        Console.WriteLine("Runs as native osx-arm64 .NET. Does not use Mono or Rosetta for installer work.");
+    }
+
+    private static void Header()
+    {
+        Console.WriteLine(ToolName);
+        Console.WriteLine(new string('-', ToolName.Length));
+    }
+
+    private static void PrintStatus(GameLayout layout, InstallStatus status)
+    {
+        Console.WriteLine($"Game:        {layout.GameRoot}");
+        Console.WriteLine($"App:         {layout.AppPath}");
+        Console.WriteLine($"Managed:     {layout.ManagedPath}");
+        Console.WriteLine($"Process:     {RuntimeInformation.ProcessArchitecture}");
+        Console.WriteLine($"Game arch:   {layout.ReadExecutableArchitectures()}");
+        Console.WriteLine($"Hook:        {(status.HookInstalled ? "installed" : "not installed")}");
+        Console.WriteLine($"Manager:     {(status.ManagerInstalled ? status.ManagerVersion ?? "installed" : "not installed")}");
+        Console.WriteLine($"Backup:      {(status.HasOriginalBackup ? status.OriginalBackupPath : "missing")}");
+        Console.WriteLine($"Mods:        {layout.ModsPath}");
+        if (!string.IsNullOrWhiteSpace(status.Warning))
+            Warn(status.Warning);
+    }
+
+    private static void PrintLogTail(GameLayout layout)
+    {
+        Console.WriteLine();
+        var logPath = Path.Combine(layout.ManagerPath, "Log.txt");
+        if (!File.Exists(logPath))
+        {
+            Warn("No UnityModManager/Log.txt found.");
+            return;
+        }
+
+        var lines = File.ReadLines(logPath).TakeLast(80);
+        foreach (var line in lines)
+            Console.WriteLine(line);
+    }
+
+    private static void Pause()
+    {
+        Console.WriteLine();
+        Console.Write("Press Enter...");
+        Console.ReadLine();
+    }
+
+    private static bool Confirm(string message, bool assumeYes)
+    {
+        if (assumeYes)
+            return true;
+
+        Console.Write($"{message} [y/N]: ");
+        var input = Console.ReadLine();
+        return input?.Equals("y", StringComparison.OrdinalIgnoreCase) == true ||
+               input?.Equals("yes", StringComparison.OrdinalIgnoreCase) == true;
+    }
+
+    private static void Info(string message) => WriteColored(message, ConsoleColor.Cyan);
+    private static void Warn(string message) => WriteColored(message, ConsoleColor.Yellow);
+    private static void Fail(string message) => WriteColored(message, ConsoleColor.Red);
+
+    private static void WriteColored(string message, ConsoleColor color)
+    {
+        var previous = Console.ForegroundColor;
+        Console.ForegroundColor = color;
+        Console.WriteLine(message);
+        Console.ForegroundColor = previous;
+    }
+
+    private sealed class Installer(GameLayout layout)
+    {
+        public InstallStatus ReadStatus()
+        {
+            var entryAssemblyPath = layout.EntryAssemblyPath;
+            var managerDll = Path.Combine(layout.ManagerPath, "UnityModManager.dll");
+            var status = new InstallStatus
+            {
+                ManagerInstalled = File.Exists(managerDll),
+                HasOriginalBackup = File.Exists(layout.OriginalBackupPath),
+                OriginalBackupPath = layout.OriginalBackupPath
+            };
+
+            if (status.ManagerInstalled)
+            {
+                try
+                {
+                    using var manager = ModuleDefMD.Load(File.ReadAllBytes(managerDll));
+                    status.ManagerVersion = manager.Assembly?.Version?.ToString();
+                }
+                catch
+                {
+                    status.ManagerVersion = "unreadable";
+                }
+            }
+
+            try
+            {
+                using var module = ModuleDefMD.Load(File.ReadAllBytes(entryAssemblyPath));
+                var warnings = new List<string>();
+                status.HookInstalled = HasStarterHook(module);
+                if (ValidateEntryPoint(module, createMissing: false) is null)
+                    warnings.Add("Target entry method missing; installer can create static constructor during install.");
+
+                if (status.HasOriginalBackup && !OriginalBackupMatches(module, layout.OriginalBackupPath))
+                    warnings.Add("Original backup does not match current game assembly; install/repair will refresh it.");
+
+                var configWarning = ReadConfigWarning();
+                if (configWarning is not null)
+                    warnings.Add(configWarning);
+
+                status.Warning = warnings.Count == 0 ? null : string.Join(Environment.NewLine, warnings);
+            }
+            catch (Exception ex)
+            {
+                status.Warning = $"Could not inspect hook: {ex.Message}";
+            }
+
+            return status;
+        }
+
+        public async Task InstallAsync(bool forcePayload, bool assumeYes)
+        {
+            if (!Confirm("Patch ADOFAI managed assembly and ensure UMM files?", assumeYes))
+                return;
+
+            Directory.CreateDirectory(layout.ManagerPath);
+            Directory.CreateDirectory(layout.ModsPath);
+
+            var payload = await PayloadResolver.ResolveAsync(layout, forceDownload: forcePayload);
+            CopyPayload(payload, forcePayload);
+            WriteGameConfig();
+            PatchEntryAssembly();
+            Info("Install / repair complete.");
+        }
+
+        public void RemoveHook(bool assumeYes)
+        {
+            if (!Confirm("Remove UMM hook from ADOFAI assembly? UMM files stay in place.", assumeYes))
+                return;
+
+            BackupTimestamped(layout.EntryAssemblyPath);
+            using var module = ModuleDefMD.Load(File.ReadAllBytes(layout.EntryAssemblyPath));
+            var removed = RemoveStarterHook(module);
+            if (!removed)
+            {
+                Warn("No hook found.");
+                return;
+            }
+            WriteModuleAtomically(module, layout.EntryAssemblyPath);
+            Info("Hook removed.");
+        }
+
+        public void RestoreOriginal(bool assumeYes)
+        {
+            if (!File.Exists(layout.OriginalBackupPath))
+            {
+                Warn("No .original_ backup exists.");
+                return;
+            }
+
+            if (!Confirm("Restore UnityEngine.CoreModule.dll from .original_ backup?", assumeYes))
+                return;
+
+            BackupTimestamped(layout.EntryAssemblyPath);
+            File.Copy(layout.OriginalBackupPath, layout.EntryAssemblyPath, overwrite: true);
+            Info("Original assembly restored.");
+        }
+
+        private void PatchEntryAssembly()
+        {
+            BackupTimestamped(layout.EntryAssemblyPath);
+
+            using (var cleanModule = ModuleDefMD.Load(File.ReadAllBytes(layout.EntryAssemblyPath)))
+            {
+                var cleanModuleWasMutated = RemoveStarterHook(cleanModule);
+                cleanModuleWasMutated |= RemoveMarker(cleanModule);
+                RefreshOriginalBackup(cleanModule, cleanModuleWasMutated);
+            }
+
+            using var module = ModuleDefMD.Load(File.ReadAllBytes(layout.EntryAssemblyPath));
+            RemoveStarterHook(module);
+
+            var method = ValidateEntryPoint(module, createMissing: true)
+                         ?? throw new InvalidOperationException("Could not create or find target entry method.");
+
+            EnsureMarker(module);
+            var starter = EnsureStarter(module);
+            var start = starter.Methods.First(m => m.Name == "Start");
+            var call = OpCodes.Call.ToInstruction(start);
+
+            if (EntryPoint.Place == InsertPlace.Before)
+                method.Body.Instructions.Insert(0, call);
+            else
+                method.Body.Instructions.Insert(Math.Max(0, method.Body.Instructions.Count - 1), call);
+
+            WriteModuleAtomically(module, layout.EntryAssemblyPath);
+        }
+
+        private void RefreshOriginalBackup(ModuleDefMD cleanModule, bool cleanModuleWasMutated)
+        {
+            if (File.Exists(layout.OriginalBackupPath) && OriginalBackupMatches(cleanModule, layout.OriginalBackupPath))
+                return;
+
+            if (File.Exists(layout.OriginalBackupPath))
+                BackupTimestamped(layout.OriginalBackupPath);
+
+            if (cleanModuleWasMutated)
+                WriteModuleAtomically(cleanModule, layout.OriginalBackupPath);
+            else
+                File.Copy(layout.EntryAssemblyPath, layout.OriginalBackupPath, overwrite: true);
+
+            Info("Refreshed UnityEngine.CoreModule.dll.original_");
+        }
+
+        private void CopyPayload(Payload payload, bool force)
+        {
+            foreach (var name in PayloadFiles)
+            {
+                if (name == "System.Xml.dll" && File.Exists(Path.Combine(layout.ManagedPath, name)))
+                    continue;
+
+                if (!payload.Files.TryGetValue(name, out var source))
+                    throw new FileNotFoundException($"Payload file missing: {name}");
+
+                var dest = Path.Combine(layout.ManagerPath, name);
+                var shouldCopy = force || payload.IsBundled || !File.Exists(dest) || !FilesEqual(source, dest);
+                if (!shouldCopy)
+                    continue;
+
+                if (File.Exists(dest))
+                    BackupTimestamped(dest);
+
+                File.Copy(source, dest, overwrite: true);
+                Info($"Copied {name}");
+            }
+        }
+
+        private static bool FilesEqual(string a, string b)
+        {
+            try
+            {
+                var infoA = new FileInfo(a);
+                var infoB = new FileInfo(b);
+                if (infoA.Length != infoB.Length)
+                    return false;
+                using var streamA = File.OpenRead(a);
+                using var streamB = File.OpenRead(b);
+                using var sha = SHA256.Create();
+                return sha.ComputeHash(streamA).SequenceEqual(sha.ComputeHash(streamB));
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private void WriteGameConfig()
+        {
+            var configPath = Path.Combine(layout.ManagerPath, "Config.xml");
+            var xml = BuildGameConfig();
+
+            if (File.Exists(configPath))
+            {
+                var existing = XDocument.Load(configPath);
+                if (ConfigMatches(expected: xml, actual: existing))
+                    return;
+
+                BackupTimestamped(configPath);
+            }
+
+            xml.Save(configPath);
+            Info("Wrote Config.xml");
+        }
+
+        private string? ReadConfigWarning()
+        {
+            var configPath = Path.Combine(layout.ManagerPath, "Config.xml");
+            if (!File.Exists(configPath))
+                return "UnityModManager/Config.xml missing; install/repair will create it.";
+
+            try
+            {
+                var existing = XDocument.Load(configPath);
+                return ConfigMatches(BuildGameConfig(), existing)
+                    ? null
+                    : "UnityModManager/Config.xml has runtime Harmony patch points; install/repair will rewrite it for mac ARM64.";
+            }
+            catch (Exception ex)
+            {
+                return $"UnityModManager/Config.xml unreadable; install/repair will rewrite it. {ex.Message}";
+            }
+        }
+
+        private static XDocument BuildGameConfig()
+        {
+            return new XDocument(
+                new XElement("Config",
+                    new XAttribute("Name", "A Dance of Fire and Ice"),
+                    new XElement("Folder", "ADOFAI"),
+                    new XElement("ModsDirectory", "Mods"),
+                    new XElement("ModInfo", "Info.json"),
+                    new XElement("GameExe", "A Dance of Fire and Ice.exe"),
+                    new XElement("EntryPoint", EntryPoint.ToConfigString()),
+                    new XElement("StartingPoint", EntryPoint.ToConfigString()),
+                    new XElement("UIStartingPoint", EntryPoint.ToConfigString()),
+                    new XElement("MinimalManagerVersion", "0.22.14"),
+                    new XElement("Comment", "Required minimum game version 2.7.0")));
+        }
+
+        private static bool ConfigMatches(XDocument expected, XDocument actual)
+        {
+            var expectedRoot = expected.Root;
+            var actualRoot = actual.Root;
+            if (expectedRoot is null || actualRoot is null)
+                return false;
+
+            if (actualRoot.Attribute("Name")?.Value != expectedRoot.Attribute("Name")?.Value)
+                return false;
+
+            foreach (var element in expectedRoot.Elements())
+            {
+                if (actualRoot.Element(element.Name)?.Value != element.Value)
+                    return false;
+            }
+
+            return true;
+        }
+
+        private MethodDef? ValidateEntryPoint(ModuleDefMD module, bool createMissing)
+        {
+            var type = module.Types.FirstOrDefault(t => t.FullName == EntryPoint.TypeName);
+            if (type is null)
+                return null;
+
+            var method = type.Methods.FirstOrDefault(m => m.Name == EntryPoint.MethodName);
+            if (method is not null)
+                return method;
+
+            if (!createMissing || EntryPoint.MethodName != ".cctor")
+                return null;
+
+            method = new MethodDefUser(
+                ".cctor",
+                MethodSig.CreateStatic(module.CorLibTypes.Void),
+                DnMethodImplAttributes.IL | DnMethodImplAttributes.Managed,
+                DnMethodAttributes.Private | DnMethodAttributes.Static | DnMethodAttributes.HideBySig |
+                DnMethodAttributes.SpecialName | DnMethodAttributes.RTSpecialName);
+            method.Body = new CilBody();
+            method.Body.Instructions.Add(OpCodes.Ret.ToInstruction());
+            type.Methods.Add(method);
+            return method;
+        }
+
+        private static bool HasStarterHook(ModuleDefMD module)
+        {
+            return module.Types.Any(t => t.FullName == "UnityModManagerNet.Injection.UnityModManagerStarter") &&
+                   module.GetTypes().SelectMany(t => t.Methods)
+                       .Where(m => m.HasBody)
+                       .SelectMany(m => m.Body.Instructions)
+                       .Any(IsStarterCall);
+        }
+
+        private static bool RemoveStarterHook(ModuleDefMD module)
+        {
+            var removed = false;
+            foreach (var method in module.GetTypes().SelectMany(t => t.Methods).Where(m => m.HasBody))
+            {
+                for (var i = method.Body.Instructions.Count - 1; i >= 0; i--)
+                {
+                    if (!IsStarterCall(method.Body.Instructions[i]))
+                        continue;
+
+                    method.Body.Instructions.RemoveAt(i);
+                    removed = true;
+                }
+            }
+
+            foreach (var type in module.Types
+                         .Where(t => t.FullName == "UnityModManagerNet.Injection.UnityModManagerStarter")
+                         .ToList())
+            {
+                module.Types.Remove(type);
+                removed = true;
+            }
+
+            return removed;
+        }
+
+        private static bool RemoveMarker(ModuleDefMD module)
+        {
+            var removed = false;
+            foreach (var type in module.Types
+                         .Where(t => t.FullName == "UnityModManagerNet.Marks.IsDirty")
+                         .ToList())
+            {
+                module.Types.Remove(type);
+                removed = true;
+            }
+
+            return removed;
+        }
+
+        private static bool IsStarterCall(Instruction instruction)
+        {
+            if (instruction.OpCode != OpCodes.Call || instruction.Operand is not IMethod method)
+                return false;
+
+            var typeName = method.DeclaringType.FullName;
+            return method.Name == "Start" &&
+                   (typeName == "UnityModManagerNet.Injection.UnityModManagerStarter" ||
+                    typeName == "UnityModManagerNet.UnityModManager");
+        }
+
+        private static void EnsureMarker(ModuleDefMD module)
+        {
+            if (module.Types.Any(t => t.FullName == "UnityModManagerNet.Marks.IsDirty"))
+                return;
+
+            var marker = new TypeDefUser(
+                "UnityModManagerNet.Marks",
+                "IsDirty",
+                module.CorLibTypes.Object.TypeDefOrRef)
+            {
+                Attributes = DnTypeAttributes.Public | DnTypeAttributes.Abstract |
+                             DnTypeAttributes.Sealed | DnTypeAttributes.BeforeFieldInit
+            };
+            module.Types.Add(marker);
+        }
+
+        private static TypeDef EnsureStarter(ModuleDefMD module)
+        {
+            var existing = module.Types.FirstOrDefault(t => t.FullName == "UnityModManagerNet.Injection.UnityModManagerStarter");
+            if (existing is not null)
+                return existing;
+
+            var starter = new TypeDefUser(
+                "UnityModManagerNet.Injection",
+                "UnityModManagerStarter",
+                module.CorLibTypes.Object.TypeDefOrRef)
+            {
+                Attributes = DnTypeAttributes.Public | DnTypeAttributes.AutoLayout |
+                             DnTypeAttributes.Class | DnTypeAttributes.AnsiClass |
+                             DnTypeAttributes.BeforeFieldInit
+            };
+
+            starter.Methods.Add(BuildStarterMethod(module));
+            module.Types.Add(starter);
+            return starter;
+        }
+
+        private static MethodDef BuildStarterMethod(ModuleDefMD module)
+        {
+            var corlib = module.CorLibTypes.AssemblyRef;
+            var consoleType = new TypeRefUser(module, "System", "Console", corlib);
+            var pathType = new TypeRefUser(module, "System.IO", "Path", corlib);
+            var assemblyType = new TypeRefUser(module, "System.Reflection", "Assembly", corlib);
+            var bindingFlagsType = new TypeRefUser(module, "System.Reflection", "BindingFlags", corlib);
+            var typeType = new TypeRefUser(module, "System", "Type", corlib);
+            var methodInfoType = new TypeRefUser(module, "System.Reflection", "MethodInfo", corlib);
+            var exceptionType = new TypeRefUser(module, "System", "Exception", corlib);
+            var objectType = module.CorLibTypes.Object.ToTypeDefOrRef();
+
+            MemberRefUser Method(IMemberRefParent type, string name, MethodSig sig) => new(module, name, sig, type);
+
+            var getExecutingAssembly = Method(assemblyType, "GetExecutingAssembly", MethodSig.CreateStatic(new ClassSig(assemblyType)));
+            var getLocation = Method(assemblyType, "get_Location", MethodSig.CreateInstance(module.CorLibTypes.String));
+            var loadFrom = Method(assemblyType, "LoadFrom", MethodSig.CreateStatic(new ClassSig(assemblyType), module.CorLibTypes.String));
+            var getAssemblyType = Method(assemblyType, "GetType", MethodSig.CreateInstance(new ClassSig(typeType), module.CorLibTypes.String));
+            var getMethod = Method(typeType, "GetMethod", MethodSig.CreateInstance(new ClassSig(methodInfoType), module.CorLibTypes.String, new ValueTypeSig(bindingFlagsType)));
+            var invoke = Method(methodInfoType, "Invoke", MethodSig.CreateInstance(module.CorLibTypes.Object, module.CorLibTypes.Object, new SZArraySig(module.CorLibTypes.Object)));
+            var getDirectoryName = Method(pathType, "GetDirectoryName", MethodSig.CreateStatic(module.CorLibTypes.String, module.CorLibTypes.String));
+            var combine = Method(pathType, "Combine", MethodSig.CreateStatic(module.CorLibTypes.String, module.CorLibTypes.String, module.CorLibTypes.String));
+            var writeLine = Method(consoleType, "WriteLine", MethodSig.CreateStatic(module.CorLibTypes.Void, module.CorLibTypes.String));
+            var concat = Method(new TypeRefUser(module, "System", "String", corlib), "Concat", MethodSig.CreateStatic(module.CorLibTypes.String, module.CorLibTypes.String, module.CorLibTypes.String));
+            var exceptionToString = Method(exceptionType, "ToString", MethodSig.CreateInstance(module.CorLibTypes.String));
+
+            var start = new MethodDefUser(
+                "Start",
+                MethodSig.CreateStatic(module.CorLibTypes.Void),
+                DnMethodImplAttributes.IL | DnMethodImplAttributes.Managed,
+                DnMethodAttributes.Public | DnMethodAttributes.Static | DnMethodAttributes.HideBySig);
+
+            var body = new CilBody { InitLocals = true, MaxStack = 5 };
+            start.Body = body;
+            var fileLocal = new Local(module.CorLibTypes.String);
+            var assemblyLocal = new Local(new ClassSig(assemblyType));
+            var typeLocal = new Local(new ClassSig(typeType));
+            var methodLocal = new Local(new ClassSig(methodInfoType));
+            var exceptionLocal = new Local(new ClassSig(exceptionType));
+            body.Variables.Add(fileLocal);
+            body.Variables.Add(assemblyLocal);
+            body.Variables.Add(typeLocal);
+            body.Variables.Add(methodLocal);
+            body.Variables.Add(exceptionLocal);
+
+            var done = Instruction.Create(OpCodes.Ret);
+            var tryStart = Instruction.Create(OpCodes.Call, getExecutingAssembly);
+            var tryEnd = Instruction.Create(OpCodes.Leave_S, done);
+            var catchStart = Instruction.Create(OpCodes.Stloc, exceptionLocal);
+
+            body.Instructions.Add(tryStart);
+            body.Instructions.Add(Instruction.Create(OpCodes.Callvirt, getLocation));
+            body.Instructions.Add(Instruction.Create(OpCodes.Call, getDirectoryName));
+            body.Instructions.Add(Instruction.Create(OpCodes.Ldstr, "UnityModManager"));
+            body.Instructions.Add(Instruction.Create(OpCodes.Call, combine));
+            body.Instructions.Add(Instruction.Create(OpCodes.Ldstr, "UnityModManager.dll"));
+            body.Instructions.Add(Instruction.Create(OpCodes.Call, combine));
+            body.Instructions.Add(Instruction.Create(OpCodes.Stloc, fileLocal));
+            body.Instructions.Add(Instruction.Create(OpCodes.Ldstr, "[Assembly] Loading UnityModManager by "));
+            body.Instructions.Add(Instruction.Create(OpCodes.Ldloc, fileLocal));
+            body.Instructions.Add(Instruction.Create(OpCodes.Call, concat));
+            body.Instructions.Add(Instruction.Create(OpCodes.Call, writeLine));
+            body.Instructions.Add(Instruction.Create(OpCodes.Ldloc, fileLocal));
+            body.Instructions.Add(Instruction.Create(OpCodes.Call, loadFrom));
+            body.Instructions.Add(Instruction.Create(OpCodes.Stloc, assemblyLocal));
+            body.Instructions.Add(Instruction.Create(OpCodes.Ldloc, assemblyLocal));
+            body.Instructions.Add(Instruction.Create(OpCodes.Ldstr, "UnityModManagerNet.Injector"));
+            body.Instructions.Add(Instruction.Create(OpCodes.Callvirt, getAssemblyType));
+            body.Instructions.Add(Instruction.Create(OpCodes.Stloc, typeLocal));
+            body.Instructions.Add(Instruction.Create(OpCodes.Ldloc, typeLocal));
+            body.Instructions.Add(Instruction.Create(OpCodes.Ldstr, "Run"));
+            body.Instructions.Add(Instruction.CreateLdcI4((int)(BindingFlags.Static | BindingFlags.Public)));
+            body.Instructions.Add(Instruction.Create(OpCodes.Callvirt, getMethod));
+            body.Instructions.Add(Instruction.Create(OpCodes.Stloc, methodLocal));
+            body.Instructions.Add(Instruction.Create(OpCodes.Ldloc, methodLocal));
+            body.Instructions.Add(Instruction.Create(OpCodes.Ldnull));
+            body.Instructions.Add(Instruction.CreateLdcI4(1));
+            body.Instructions.Add(Instruction.Create(OpCodes.Newarr, objectType));
+            body.Instructions.Add(Instruction.Create(OpCodes.Dup));
+            body.Instructions.Add(Instruction.CreateLdcI4(0));
+            body.Instructions.Add(Instruction.CreateLdcI4(0));
+            body.Instructions.Add(Instruction.Create(OpCodes.Box, module.CorLibTypes.Boolean.ToTypeDefOrRef()));
+            body.Instructions.Add(Instruction.Create(OpCodes.Stelem_Ref));
+            body.Instructions.Add(Instruction.Create(OpCodes.Callvirt, invoke));
+            body.Instructions.Add(Instruction.Create(OpCodes.Pop));
+            body.Instructions.Add(tryEnd);
+            body.Instructions.Add(catchStart);
+            body.Instructions.Add(Instruction.Create(OpCodes.Ldloc, exceptionLocal));
+            body.Instructions.Add(Instruction.Create(OpCodes.Callvirt, exceptionToString));
+            body.Instructions.Add(Instruction.Create(OpCodes.Call, writeLine));
+            body.Instructions.Add(Instruction.Create(OpCodes.Leave_S, done));
+            body.Instructions.Add(done);
+
+            body.ExceptionHandlers.Add(new ExceptionHandler(ExceptionHandlerType.Catch)
+            {
+                TryStart = tryStart,
+                TryEnd = catchStart,
+                HandlerStart = catchStart,
+                HandlerEnd = done,
+                CatchType = exceptionType
+            });
+
+            return start;
+        }
+
+        private static void BackupTimestamped(string path)
+        {
+            if (!File.Exists(path))
+                return;
+
+            var backup = $"{path}.nativeumm_backup_{DateTime.Now:yyyyMMdd_HHmmss}";
+            File.Copy(path, backup, overwrite: false);
+        }
+
+        private static bool OriginalBackupMatches(ModuleDefMD module, string backupPath)
+        {
+            if (!File.Exists(backupPath))
+                return false;
+
+            try
+            {
+                using var backup = ModuleDefMD.Load(File.ReadAllBytes(backupPath));
+                return backup.Mvid == module.Mvid;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static void WriteModuleAtomically(ModuleDefMD module, string path)
+        {
+            var temp = $"{path}.nativeumm_tmp_{Environment.ProcessId}";
+            module.Write(temp);
+            File.Copy(temp, path, overwrite: true);
+            File.Delete(temp);
+        }
+    }
+
+    private sealed class PayloadResolver
+    {
+        public static async Task<Payload> ResolveAsync(GameLayout layout, bool forceDownload)
+        {
+            var bundledDirs = BundledPayloadDirectories().Distinct(StringComparer.Ordinal).ToList();
+            var bundled = TryBuild(bundledDirs, isBundled: true);
+            if (bundled is not null)
+                return bundled;
+
+            var candidates = CandidatePayloadDirectories(layout).Distinct(StringComparer.Ordinal).ToList();
+            if (!forceDownload)
+            {
+                var payload = TryBuild(candidates);
+                if (payload is not null)
+                    return payload;
+            }
+
+            var cache = await DownloadOfficialPayloadAsync();
+            candidates.Insert(0, cache);
+            return TryBuild(candidates) ?? throw new InvalidOperationException("Could not resolve UnityModManager payload files.");
+        }
+
+        private static IEnumerable<string> BundledPayloadDirectories()
+        {
+            yield return Path.Combine(AppContext.BaseDirectory, "payload");
+            yield return Path.Combine(AppContext.BaseDirectory, "UnityModManagerInstaller");
+        }
+
+        private static IEnumerable<string> CandidatePayloadDirectories(GameLayout layout)
+        {
+            yield return Path.Combine(AppContext.BaseDirectory, "payload");
+            yield return Path.Combine(AppContext.BaseDirectory, "UnityModManagerInstaller");
+            yield return layout.ManagerPath;
+
+            var dir = new DirectoryInfo(AppContext.BaseDirectory);
+            while (dir is not null)
+            {
+                yield return Path.Combine(dir.FullName, "lib");
+                yield return Path.Combine(dir.FullName, "UnityModManagerInstaller");
+                dir = dir.Parent;
+            }
+
+            yield return CachePayloadPath;
+        }
+
+        private static Payload? TryBuild(IEnumerable<string> directories, bool isBundled = false)
+        {
+            var files = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var dir in directories.Where(Directory.Exists))
+            {
+                foreach (var name in PayloadFiles)
+                {
+                    if (files.ContainsKey(name))
+                        continue;
+
+                    var direct = Path.Combine(dir, name);
+                    if (File.Exists(direct))
+                    {
+                        files[name] = direct;
+                        continue;
+                    }
+
+                    var nested = Directory.EnumerateFiles(dir, name, SearchOption.AllDirectories).FirstOrDefault();
+                    if (nested is not null)
+                        files[name] = nested;
+                }
+            }
+
+            return files.ContainsKey("UnityModManager.dll") &&
+                   files.ContainsKey("0Harmony.dll") &&
+                   files.ContainsKey("dnlib.dll")
+                ? new Payload(files, isBundled)
+                : null;
+        }
+
+        private static string CachePayloadPath => Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".cache",
+            "adofai-umm-mac",
+            "payload");
+
+        private static async Task<string> DownloadOfficialPayloadAsync()
+        {
+            Directory.CreateDirectory(CachePayloadPath);
+            var zipPath = Path.Combine(CachePayloadPath, "UnityModManager.zip");
+
+            Program.Info("Downloading UnityModManager payload...");
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("adofai-umm-mac/1.0");
+            var bytes = await client.GetByteArrayAsync(OfficialPayloadUrl);
+            await File.WriteAllBytesAsync(zipPath, bytes);
+
+            using var zip = ZipFile.OpenRead(zipPath);
+            foreach (var entry in zip.Entries)
+            {
+                var name = Path.GetFileName(entry.FullName);
+                if (!PayloadFiles.Contains(name, StringComparer.OrdinalIgnoreCase) || string.IsNullOrEmpty(name))
+                    continue;
+
+                entry.ExtractToFile(Path.Combine(CachePayloadPath, name), overwrite: true);
+            }
+
+            var stamp = Convert.ToHexString(SHA256.HashData(bytes))[..16];
+            await File.WriteAllTextAsync(Path.Combine(CachePayloadPath, "payload.sha256.txt"), stamp);
+            return CachePayloadPath;
+        }
+    }
+
+    private sealed record Payload(Dictionary<string, string> Files, bool IsBundled = false);
+
+    private sealed record EntryPointInfo(string AssemblyName, string TypeName, string MethodName, InsertPlace Place)
+    {
+        public string ToConfigString()
+        {
+            var method = MethodName switch
+            {
+                ".cctor" => "cctor",
+                ".ctor" => "ctor",
+                _ => MethodName
+            };
+            return $"[{AssemblyName}]{TypeName}.{method}:{Place}";
+        }
+    }
+
+    private enum InsertPlace
+    {
+        Before,
+        After
+    }
+
+    private sealed class InstallStatus
+    {
+        public bool HookInstalled { get; set; }
+        public bool ManagerInstalled { get; set; }
+        public string? ManagerVersion { get; set; }
+        public bool HasOriginalBackup { get; set; }
+        public string OriginalBackupPath { get; set; } = "";
+        public string? Warning { get; set; }
+    }
+
+    private sealed class CliOptions
+    {
+        public bool Help { get; private set; }
+        public bool Status { get; private set; }
+        public bool Install { get; private set; }
+        public bool Remove { get; private set; }
+        public bool Restore { get; private set; }
+        public bool Yes { get; private set; }
+        public bool ForcePayload { get; private set; }
+        public string? GamePath { get; private set; }
+
+        public static CliOptions Parse(string[] args)
+        {
+            var options = new CliOptions();
+            for (var i = 0; i < args.Length; i++)
+            {
+                switch (args[i])
+                {
+                    case "-h":
+                    case "--help":
+                        options.Help = true;
+                        break;
+                    case "--status":
+                        options.Status = true;
+                        break;
+                    case "--install":
+                        options.Install = true;
+                        break;
+                    case "--remove":
+                        options.Remove = true;
+                        break;
+                    case "--restore":
+                        options.Restore = true;
+                        break;
+                    case "-y":
+                    case "--yes":
+                        options.Yes = true;
+                        break;
+                    case "--force-payload":
+                        options.ForcePayload = true;
+                        break;
+                    case "--game":
+                        if (++i >= args.Length)
+                            throw new ArgumentException("--game needs a path.");
+                        options.GamePath = args[i];
+                        break;
+                    default:
+                        throw new ArgumentException($"Unknown argument: {args[i]}");
+                }
+            }
+            return options;
+        }
+    }
+
+    private sealed class GameLayout
+    {
+        private GameLayout(string gameRoot, string appPath)
+        {
+            GameRoot = gameRoot;
+            AppPath = appPath;
+            ManagedPath = Path.Combine(appPath, "Contents", "Resources", "Data", "Managed");
+            EntryAssemblyPath = Path.Combine(ManagedPath, EntryPoint.AssemblyName);
+            ManagerPath = Path.Combine(ManagedPath, "UnityModManager");
+            ModsPath = Path.Combine(gameRoot, "Mods");
+            OriginalBackupPath = EntryAssemblyPath + ".original_";
+        }
+
+        public string GameRoot { get; }
+        public string AppPath { get; }
+        public string ManagedPath { get; }
+        public string EntryAssemblyPath { get; }
+        public string ManagerPath { get; }
+        public string ModsPath { get; }
+        public string OriginalBackupPath { get; }
+
+        public static GameLayout? Detect(string? requestedPath)
+        {
+            foreach (var candidate in CandidatePaths(requestedPath))
+            {
+                var expanded = ExpandHome(candidate);
+                var app = ResolveAppPath(expanded);
+                if (app is null)
+                    continue;
+
+                var root = Directory.GetParent(app)?.FullName;
+                if (root is null)
+                    continue;
+
+                var layout = new GameLayout(root, app);
+                if (File.Exists(layout.EntryAssemblyPath) && File.Exists(Path.Combine(layout.ManagedPath, "Assembly-CSharp.dll")))
+                    return layout;
+            }
+
+            return null;
+        }
+
+        public string ReadExecutableArchitectures()
+        {
+            var executable = Path.Combine(AppPath, "Contents", "MacOS", "ADanceOfFireAndIce");
+            if (!File.Exists(executable))
+                return "missing";
+
+            try
+            {
+                var psi = new ProcessStartInfo("/usr/bin/lipo", $"-archs {Quote(executable)}")
+                {
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false
+                };
+                using var process = Process.Start(psi);
+                if (process is null)
+                    return "unknown";
+                var output = process.StandardOutput.ReadToEnd().Trim();
+                process.WaitForExit(1000);
+                return string.IsNullOrWhiteSpace(output) ? "unknown" : output;
+            }
+            catch
+            {
+                return "unknown";
+            }
+        }
+
+        private static IEnumerable<string> CandidatePaths(string? requestedPath)
+        {
+            if (!string.IsNullOrWhiteSpace(requestedPath))
+                yield return requestedPath;
+
+            yield return "~/Library/Application Support/Steam/steamapps/common/A Dance of Fire and Ice";
+            yield return "~/Library/Application Support/com.valvesoftware.Steam/steamapps/common/A Dance of Fire and Ice";
+            yield return "~/.steam/steam/steamapps/common/A Dance of Fire and Ice";
+
+            var libraryFolders = ExpandHome("~/Library/Application Support/Steam/steamapps/libraryfolders.vdf");
+            if (File.Exists(libraryFolders))
+            {
+                foreach (var line in File.ReadLines(libraryFolders))
+                {
+                    var trimmed = line.Trim();
+                    if (!trimmed.StartsWith("\"path\"", StringComparison.Ordinal))
+                        continue;
+
+                    var parts = trimmed.Split('"', StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length >= 2)
+                        yield return Path.Combine(parts[^1].Replace(@"\\", "/"), "steamapps", "common", "A Dance of Fire and Ice");
+                }
+            }
+        }
+
+        private static string? ResolveAppPath(string path)
+        {
+            if (path.EndsWith(".app", StringComparison.OrdinalIgnoreCase) && Directory.Exists(path))
+                return path;
+
+            if (Directory.Exists(Path.Combine(path, "Contents", "Resources", "Data", "Managed")))
+                return path;
+
+            var direct = Path.Combine(path, "ADanceOfFireAndIce.app");
+            if (Directory.Exists(direct))
+                return direct;
+
+            if (!Directory.Exists(path))
+                return null;
+
+            return Directory.EnumerateDirectories(path, "*.app", SearchOption.TopDirectoryOnly)
+                .FirstOrDefault(p => Path.GetFileName(p).Contains("Dance", StringComparison.OrdinalIgnoreCase) ||
+                                     Path.GetFileName(p).Contains("ADOFAI", StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static string ExpandHome(string path)
+        {
+            if (path == "~")
+                return Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
+            if (path.StartsWith("~/", StringComparison.Ordinal))
+                return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), path[2..]);
+
+            return path;
+        }
+
+        private static string Quote(string value) => "\"" + value.Replace("\"", "\\\"") + "\"";
+    }
+}

@@ -4,7 +4,7 @@
 
   <PropertyGroup>
     <OutputType>Library</OutputType>
-    <TargetFramework>net35</TargetFramework>
+    <TargetFramework>net472</TargetFramework>
     <LangVersion>latest</LangVersion>
 
     <AssemblyName>UnityModManager</AssemblyName>
@@ -32,7 +32,7 @@
 
   <ItemGroup>
     <PackageReference Include="dnlib" Version="3.1.0" />
-    <PackageReference Include="Lib.Harmony" Version="2.3.6.0" />
+    <PackageReference Include="Lib.Harmony" Version="2.4.2" />
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -47,5 +47,18 @@
       <HintPath>..\lib\UnityEngine.UI.dll</HintPath>
     </Reference>
   </ItemGroup>
+
+  <ItemGroup>
+    <UnityModuleDll Include="..\lib\UnityEngine.*Module.dll" />
+  </ItemGroup>
+
+  <Target Name="AddUnityModuleRefs" BeforeTargets="ResolveAssemblyReferences">
+    <ItemGroup>
+      <Reference Include="@(UnityModuleDll->'%(Filename)')">
+        <HintPath>%(UnityModuleDll.FullPath)</HintPath>
+        <Private>false</Private>
+      </Reference>
+    </ItemGroup>
+  </Target>
 
 </Project>
