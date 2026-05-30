@@ -1,0 +1,131 @@
+UnityModManagerMac/NativeUmm/src/Exports.cs
+  s_1083e88cd0187b::t_78dbd10b8c8fb9 108,115
+  s_1083e88cd0187b::t_9a467ea37adcac 104-106,109-114
+  s_1083e88cd0187b::t_a5f555fd263e65 97-103
+  s_1083e88cd0187b::t_b9988bf95c4440 2-4,6-13,15,18-44,48-55,58,65-70,73-74,76-81,83-84,86-89,116-118,120-121,123-124,127-135,138-161,183-193,195-220,240-261
+  s_1083e88cd0187b::t_76e3364a477c8c 177
+  s_1083e88cd0187b::t_ed5622906c8a9a 47,59-64
+  s_1083e88cd0187b::t_b13388c6ca0bba 57
+  s_1083e88cd0187b::t_76dfdc965e0507 173-175
+  s_1083e88cd0187b::t_9b7a20bd2a9aeb 5,14,16-17,45,56,71-72,75,90,92-93,95,125-126,136-137,162-172,176,178-182,194,221-239
+  s_1083e88cd0187b::t_b39aa8acc53157 1
+  s_1083e88cd0187b::t_0de51cd84fa9fb 91,94,96
+  s_1083e88cd0187b::t_cd29f9eb1af604 82,85
+  s_1083e88cd0187b::t_c8753ed7f2a08f 46
+  s_1083e88cd0187b::t_162b9438d1f839 107
+  s_1083e88cd0187b::t_2783bec2e61d75 119,122
+UnityModManagerMac/build-app.sh
+  s_1083e88cd0187b::t_a7f609dec58aee 1-41
+UnityModManagerMac/NativeUmm/src/ModManager.cs
+  s_1083e88cd0187b::t_77922c5e4c10a6 37-39,73-74,152,180,182-207,210,212-261,264,266-268,270-276
+  s_1083e88cd0187b::t_815a73bbbf0e41 87-88,91,93,95-97,99-106,108
+  s_1083e88cd0187b::t_61c1e1341540f4 77,79,81-83,147-148
+  s_1083e88cd0187b::t_ab025af6933023 23-32,34,36,47,49,52,55-57,61-62,67-68
+  s_1083e88cd0187b::t_8841a66ee07ea3 13-14
+  s_1083e88cd0187b::t_774e48bb70fcd6 60
+  s_1083e88cd0187b::t_dc2de41d79dfcf 1-10,12,15-22,33,35,40-46,48,50-51,53-54,58-59,63-66,69-72,171-179,181,208-209,211,262-263,265,269,277-293
+  s_1083e88cd0187b::t_c12eb0d104b9d4 75-76,78,80,84-86,89-90,92,94,98,107,109-146
+  s_1083e88cd0187b::t_758c7910859d21 149-151,153-170
+UnityModManagerMac/UnityModManagerMac/Assets.xcassets/AppIcon.appiconset/Contents.json
+  s_1083e88cd0187b::t_61b7854c41cdcb 3-12
+UnityModManagerMac/.gitignore
+  s_1083e88cd0187b::t_e233af91ea4f72 1-7,9,13-15
+  s_1083e88cd0187b::t_dbb0af91de83d5 8,10-12
+UnityModManagerMac/dmg-background.py
+  s_1083e88cd0187b::t_048bb544e55242 1-50
+MacTuiInstaller/build-universal.sh
+  s_eab3f9dc60be13::t_5226777d39ea04 1-44
+UnityModManagerMac/NativeUmm/src/Installer.cs
+  s_1083e88cd0187b::t_3a474e618cb862 602
+  s_1083e88cd0187b::t_b652970b3b9161 1-601,603-629
+UnityModManagerMac/README.md
+  s_1083e88cd0187b::t_d0b6fb019002ed 25-29,36-39
+  s_1083e88cd0187b::t_ee0c57b95f9556 30-35
+  s_1083e88cd0187b::t_5aac767db476a7 1-24,40-85
+UnityModManagerMac/NativeUmm/src/Support.cs
+  s_1083e88cd0187b::t_39f015b7fecd79 18-36
+  s_1083e88cd0187b::t_f97668725778f1 1-17,37-89
+UnityModManagerMac/UnityModManagerMac/ContentView.swift
+  s_1083e88cd0187b::t_bbb9d96d0b033f 110,120
+  s_1083e88cd0187b::t_a8e9949288b689 10-11,14,16-17,19,29,31,33,35-36,43-49,52-54,56-57,66-67,73-74,87-88,90,92,113,119,124,137-138,144,155-157,187,212-213,219-220,226-227,231-232,386-392
+  s_1083e88cd0187b::t_5b16c757d4a036 241,265-266,281,283-284,293,295-297,299,301-303
+  s_1083e88cd0187b::t_e4b7f335b60eb8 101-105
+  s_1083e88cd0187b::t_cde44c67ef5848 5-6,15,18,20-28,30,32,34,37-42,50-51,55,58-65,68-72,75-86,89,91,93-95,98-99,106-108,111-112,114-118,121-123,126,129,142,145-154,214-215,221-225,228-230,233-240,242-245,255,258-264,285-292,310-338,349-364,366-380,385
+  s_1083e88cd0187b::t_fe910435e953b4 96-97,100,109,125,128,130-135,158-165,168,171-175,177,179-182,184,186,188-189,192-194,208,210-211,216-218
+  s_1083e88cd0187b::t_0797b478c7ba00 267-272,274-275,279,282
+  s_1083e88cd0187b::t_c10932d80d2053 143
+  s_1083e88cd0187b::t_f9e9915e3b8cc5 305-309
+  s_1083e88cd0187b::t_07c0b8acd4e010 178,185
+  s_1083e88cd0187b::t_98063e818d54fc 166-167,169-170,176,183
+  s_1083e88cd0187b::t_87d49f5b998aeb 190-191,195-207,209
+  s_1083e88cd0187b::t_f36711b6698628 246-254,256-257,273,276-278,280
+  s_1083e88cd0187b::t_ee40eedc4e37c8 127,139-141
+  s_1083e88cd0187b::t_54c5d960e85bf0 294,298,300,304
+MacTuiInstaller/Program.cs
+  s_eab3f9dc60be13::t_c4aff192500a8f 163
+UnityModManagerMac/NativeUmm/src/GameLayout.cs
+  s_1083e88cd0187b::t_69d30157d643d5 1-131
+UnityModManagerMac/NativeUmm/NativeUmm.csproj
+  s_1083e88cd0187b::t_745cbf1940cd74 1-24
+UnityModManagerMac/UnityModManagerMac/InstallerService.swift
+  s_1083e88cd0187b::t_94ae7debd9fda9 1-9,11-24,42-48,68-71,73,75-81,84-92,100,103,110-111,114-119,123-137,141-144,146,148-160
+  s_1083e88cd0187b::t_923b9bbe752915 82-83,104-105,120,138-140
+  s_1083e88cd0187b::t_b2bb99db2d315b 93-99
+  s_1083e88cd0187b::t_4c5da3b0e9262f 107-109,112
+  s_1083e88cd0187b::t_fde83980b57dac 145,147
+  s_1083e88cd0187b::t_f4b138c8ad2252 25-41
+  s_1083e88cd0187b::t_09295837f9b0f1 49,66-67,72,74
+  s_1083e88cd0187b::t_247b448af93fc4 101-102,106
+  s_1083e88cd0187b::t_6d97b56635f573 121
+  s_1083e88cd0187b::t_01f135e3724e0f 50-65
+  s_1083e88cd0187b::t_26efbcbe75e0b2 10
+  s_1083e88cd0187b::t_06a0787dd28ae8 113
+  s_1083e88cd0187b::t_ca5b5bb0b1b465 122
+UnityModManagerMac/NativeUmm/NativeUmm-Bridging-Header.h
+  s_1083e88cd0187b::t_22bcf2804c1a6a 1-10
+UnityModManagerMac/build-native.sh
+  s_1083e88cd0187b::t_f9b86cde3ac8d8 22-23,25
+  s_1083e88cd0187b::t_620b7a74a1ef76 1-21,24,26-69
+UnityModManagerMac/UnityModManagerMac/RecommendedMods.json
+  s_1083e88cd0187b::t_b6e63c66478e97 1-3,5,8-10
+UnityModManagerMac/UnityModManagerMac.xcodeproj/project.pbxproj
+  s_1083e88cd0187b::t_aacd208e385a4b 87-88
+  s_1083e88cd0187b::t_5b9c79bd87ccf5 401
+  s_1083e88cd0187b::t_aa099e5ede0feb 408,439
+  s_1083e88cd0187b::t_304c4019991db2 9-12
+  s_1083e88cd0187b::t_7baa973a859df8 34-35
+  s_1083e88cd0187b::t_2541f8a49b0eb8 223
+  s_1083e88cd0187b::t_20b65f20be8c3a 432
+MacTuiInstaller/MacTuiInstaller.csproj
+  h_6eeb8441a8a159 8,11,14,19,21-23
+  s_eab3f9dc60be13::t_14d8e6c9bf3699 12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "ea10e6aa49e48e1c4487718413743337a4f2f2b9",
+  "prompts": {},
+  "humans": {
+    "h_6eeb8441a8a159": {
+      "author": "koren <131921956+kkorenn@users.noreply.github.com>"
+    }
+  },
+  "sessions": {
+    "s_1083e88cd0187b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "21c54e9f-623b-4989-b828-7f60c666db6d",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "koren <131921956+kkorenn@users.noreply.github.com>"
+    },
+    "s_eab3f9dc60be13": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fdc12efa-fbbc-4805-b78d-6a52002ff680",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "koren <131921956+kkorenn@users.noreply.github.com>"
+    }
+  }
+}
