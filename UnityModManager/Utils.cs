@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text.RegularExpressions;
@@ -16,22 +17,69 @@ namespace UnityModManagerNet
             new Thread(() =>
             {
                 Thread.CurrentThread.IsBackground = true;
-                var folders = new string[] { Application.persistentDataPath, Application.dataPath };
+
+                var folders = new List<string> { Application.persistentDataPath, Application.dataPath };
+
+                // Unity writes Player.log outside persistentDataPath on macOS/Linux,
+                // so add the platform-specific log directories explicitly. Without
+                // this, the file is never found and the button does nothing.
+                var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                if (!string.IsNullOrEmpty(home))
+                {
+                    if (IsMacPlatform())
+                    {
+                        // ~/Library/Logs/<company>/<product>/Player.log
+                        folders.Add(Path.Combine(home, "Library", "Logs", Application.companyName, Application.productName));
+                        folders.Add(Path.Combine(home, "Library", "Logs", Application.productName));
+                        folders.Add(Path.Combine(home, "Library", "Logs", "Unity"));
+                    }
+                    else if (IsLinuxPlatform())
+                    {
+                        // ~/.config/unity3d/<company>/<product>/Player.log
+                        folders.Add(Path.Combine(home, ".config", "unity3d", Application.companyName, Application.productName));
+                    }
+                }
+
                 var files = new string[] { "Player.log", "output_log.txt" };
                 foreach (var folder in folders)
                 {
+                    if (string.IsNullOrEmpty(folder))
+                        continue;
                     foreach (var file in files)
                     {
                         var filepath = Path.Combine(folder, file);
                         if (File.Exists(filepath))
                         {
                             Thread.Sleep(500);
-                            Application.OpenURL(filepath);
+                            OpenPath(filepath);
                             return;
                         }
                     }
                 }
+
+                Logger.Error("Detailed log file (Player.log) not found.");
             }).Start();
+        }
+
+        // Opens a local file/folder with the OS default handler. Unity's
+        // Application.OpenURL does not reliably open local paths under Mono on
+        // macOS/Linux, so shell out to the platform opener there.
+        private static void OpenPath(string path)
+        {
+            try
+            {
+                if (IsMacPlatform())
+                    Process.Start(new ProcessStartInfo("open", "\"" + path + "\"") { UseShellExecute = false });
+                else if (IsLinuxPlatform())
+                    Process.Start(new ProcessStartInfo("xdg-open", "\"" + path + "\"") { UseShellExecute = false });
+                else
+                    Application.OpenURL(path);
+            }
+            catch (Exception e)
+            {
+                Logger.Error($"Can't open '{path}'. {e.Message}");
+                try { Application.OpenURL(path); } catch { }
+            }
         }
 
         public static Version ParseVersion(string str)

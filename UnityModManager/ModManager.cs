@@ -103,6 +103,18 @@ namespace UnityModManagerNet
 
             initialized = true;
 
+            // MonoMod's default DynamicMethod backend emits invalid IL for Harmony
+            // reverse patches on the Unity 6 "BleedingEdge" Mono runtime (macOS /
+            // Apple Silicon), throwing "InvalidProgramException: Invalid IL code" and
+            // killing any mod that uses a reverse patch (e.g. JALib). Forcing the
+            // Cecil backend avoids the broken dynamic-method path. Set before any mod
+            // (or UMM itself) patches; respect a value the user set explicitly.
+            if ((IsMacPlatform() || IsLinuxPlatform()) &&
+                string.IsNullOrEmpty(Environment.GetEnvironmentVariable("MONOMOD_DMD_TYPE")))
+            {
+                Environment.SetEnvironmentVariable("MONOMOD_DMD_TYPE", "Cecil");
+            }
+
             Logger.Clear();
 
             Logger.Log($"Initialize.");

@@ -5,6 +5,12 @@
       "name": "koren resource pack",
       "description": "A resource pack mod similar to Jipper Resource Pack designed to replace most of the mods you are using",
       "url": "https://github.com/kkorenn/KorenResourcePack/releases/latest/download/KorenResourcePack.zip"
+    },
+    {
+      "id": "YoutubeStream",
+      "name": "YoutubeStream",
+      "description": "If you put a YouTube link in your level file, it will temporarily store the song in memory and stream it the moment the level is played. The player must also have this mod enabled and be connected to the internet.",
+      "url": "https://bot.adofai.gg/api/mods/YoutubeStream?download=true"
     }
   ]
 }
