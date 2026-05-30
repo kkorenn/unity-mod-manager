@@ -1,0 +1,45 @@
+UnityModManagerMac/dmg-background.py
+  s_1083e88cd0187b::t_fa1fd486530bf1 2-3,6,12-13,23,37,41
+  s_1083e88cd0187b::t_3c856e3d66f595 5,11,22,36,43-45,47-48
+UnityModManager/ModManager.cs
+  s_adbe86dedabc41::t_7c4fd4f7a6624c 106-117
+UnityModManagerMac/dmg-settings.py
+  s_1083e88cd0187b::t_47c6e397dd5867 1-33
+UnityModManagerMac/UnityModManagerMac/RecommendedMods.json
+  h_6eeb8441a8a159 8-13
+UnityModManager/Utils.cs
+  s_adbe86dedabc41::t_021836410a4151 2
+  s_adbe86dedabc41::t_9bed7abab205af 20-42,46-47,54,59-60,64-82
+UnityModManagerMac/build-app.sh
+  s_1083e88cd0187b::t_edcfa2ba73c38b 34-60
+  s_1083e88cd0187b::t_fb036f68507576 31-33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "f428b45b58ee4e4695610a683bdbdd771fcf5639",
+  "prompts": {},
+  "humans": {
+    "h_6eeb8441a8a159": {
+      "author": "koren <131921956+kkorenn@users.noreply.github.com>"
+    }
+  },
+  "sessions": {
+    "s_1083e88cd0187b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "21c54e9f-623b-4989-b828-7f60c666db6d",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "koren <131921956+kkorenn@users.noreply.github.com>"
+    },
+    "s_adbe86dedabc41": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d63abf45-3ad0-4183-8826-2ab2bae6284d",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "koren <131921956+kkorenn@users.noreply.github.com>"
+    }
+  }
+}
