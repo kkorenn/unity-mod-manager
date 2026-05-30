@@ -50,12 +50,6 @@ internal static class Program
             return 1;
         }
 
-        if (RuntimeInformation.ProcessArchitecture != Architecture.Arm64)
-        {
-            Fail($"Process architecture is {RuntimeInformation.ProcessArchitecture}; expected Arm64. Use the osx-arm64 publish.");
-            return 1;
-        }
-
         try
         {
             var layout = GameLayout.Detect(options.GamePath);
@@ -166,7 +160,7 @@ internal static class Program
         Console.WriteLine("  adofai-umm --restore [--yes]");
         Console.WriteLine("  adofai-umm --game \"/path/to/ADanceOfFireAndIce.app\"");
         Console.WriteLine();
-        Console.WriteLine("Runs as native osx-arm64 .NET. Does not use Mono or Rosetta for installer work.");
+        Console.WriteLine("Universal binary: runs natively on Intel (x64) and Apple Silicon (arm64).");
     }
 
     private static void Header()

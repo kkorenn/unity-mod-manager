@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RootNamespace>NativeUmm</RootNamespace>
+
+    <!-- NativeAOT static library: produces NativeUmm.a fused into the Swift app. -->
+    <PublishAot>true</PublishAot>
+    <NativeLib>Static</NativeLib>
+    <InvariantGlobalization>true</InvariantGlobalization>
+
+    <!-- arm64 only for now; brew static ssl/brotli are arm64. -->
+    <RuntimeIdentifier>osx-arm64</RuntimeIdentifier>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="dnlib" Version="4.5.0" />
+  </ItemGroup>
+
+</Project>

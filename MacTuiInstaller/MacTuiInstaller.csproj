@@ -5,14 +5,22 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+
     <AssemblyName>adofai-umm</AssemblyName>
     <RootNamespace>AdoUmmMac</RootNamespace>
+
+    <!-- Default RID for `dotnet build`; build-universal.sh overrides per-arch via -r -->
     <RuntimeIdentifier>osx-arm64</RuntimeIdentifier>
+
     <SelfContained>true</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
     <PublishTrimmed>false</PublishTrimmed>
     <InvariantGlobalization>true</InvariantGlobalization>
+
     <Version>1.0.0</Version>
+
+    <!-- Include payload files inside single-file extraction bundle -->
+    <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
   </PropertyGroup>
 
   <ItemGroup>
@@ -25,9 +33,5 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
   </ItemGroup>
-
-  <PropertyGroup>
-    <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
-  </PropertyGroup>
 
 </Project>
