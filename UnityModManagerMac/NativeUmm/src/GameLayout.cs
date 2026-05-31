@@ -1,4 +1,4 @@
-using System.Diagnostics;
+using System.Buffers.Binary;
 
 namespace NativeUmm;
 
@@ -52,23 +52,96 @@ internal sealed class GameLayout
 
         try
         {
-            var psi = new ProcessStartInfo("/usr/bin/lipo", $"-archs {Quote(executable)}")
-            {
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false
-            };
-            using var process = Process.Start(psi);
-            if (process is null)
-                return "unknown";
-            var output = process.StandardOutput.ReadToEnd().Trim();
-            process.WaitForExit(1000);
-            return string.IsNullOrWhiteSpace(output) ? "unknown" : output;
+            return ReadMachOArchitectures(executable);
         }
         catch
         {
             return "unknown";
         }
+    }
+
+    // Mach-O magics, read big-endian so each on-disk byte order maps to one value.
+    private const uint FatMagic = 0xCAFEBABE, FatMagic64 = 0xCAFEBABF;
+    private const uint Thin64LE = 0xCFFAEDFE, Thin32LE = 0xCEFAEDFE; // cputype little-endian
+    private const uint Thin64BE = 0xFEEDFACF, Thin32BE = 0xFEEDFACE; // cputype big-endian
+
+    private const int CpuArchAbi64 = 0x01000000;
+    private const int CpuTypeX86 = 7, CpuTypeArm = 12;
+    private const int CpuTypeX86_64 = CpuTypeX86 | CpuArchAbi64;
+    private const int CpuTypeArm64 = CpuTypeArm | CpuArchAbi64;
+    private const int CpuSubtypeArm64E = 2;
+
+    /// Parses the Mach-O header directly to list architectures (e.g. "x86_64 arm64"),
+    /// matching `lipo -archs`. Reading the bytes ourselves avoids spawning
+    /// /usr/bin/lipo, whose shim pops the "install command line developer tools"
+    /// dialog on Macs without Xcode Command Line Tools installed.
+    private static string ReadMachOArchitectures(string path)
+    {
+        using var fs = File.OpenRead(path);
+        Span<byte> head = stackalloc byte[8];
+        if (!TryReadExact(fs, head))
+            return "unknown";
+
+        uint magic = BinaryPrimitives.ReadUInt32BigEndian(head);
+
+        // Fat/universal binary: slice count and each slice's cputype are big-endian.
+        if (magic is FatMagic or FatMagic64)
+        {
+            uint count = BinaryPrimitives.ReadUInt32BigEndian(head[4..]);
+            if (count == 0 || count > 32)
+                return "unknown";
+            int stride = magic == FatMagic64 ? 32 : 20; // sizeof fat_arch_64 / fat_arch
+            var archs = new List<string>((int)count);
+            Span<byte> slice = stackalloc byte[8]; // cputype + cpusubtype
+            for (uint i = 0; i < count; i++)
+            {
+                fs.Position = 8 + (long)i * stride;
+                if (!TryReadExact(fs, slice))
+                    break;
+                archs.Add(ArchName(BinaryPrimitives.ReadInt32BigEndian(slice),
+                                   BinaryPrimitives.ReadInt32BigEndian(slice[4..])));
+            }
+            return archs.Count > 0 ? string.Join(' ', archs) : "unknown";
+        }
+
+        // Thin Mach-O: cputype (offset 4) + cpusubtype (offset 8) follow the magic.
+        bool littleEndian = magic is Thin64LE or Thin32LE;
+        if (!littleEndian && magic is not (Thin64BE or Thin32BE))
+            return "unknown";
+
+        int cpuType = littleEndian
+            ? BinaryPrimitives.ReadInt32LittleEndian(head[4..])
+            : BinaryPrimitives.ReadInt32BigEndian(head[4..]);
+
+        Span<byte> sub = stackalloc byte[4];
+        fs.Position = 8;
+        int cpuSub = TryReadExact(fs, sub)
+            ? (littleEndian ? BinaryPrimitives.ReadInt32LittleEndian(sub)
+                            : BinaryPrimitives.ReadInt32BigEndian(sub))
+            : 0;
+        return ArchName(cpuType, cpuSub);
+    }
+
+    private static string ArchName(int cpuType, int cpuSubtype) => cpuType switch
+    {
+        CpuTypeX86_64 => "x86_64",
+        CpuTypeArm64  => (cpuSubtype & 0x00FFFFFF) == CpuSubtypeArm64E ? "arm64e" : "arm64",
+        CpuTypeX86    => "i386",
+        CpuTypeArm    => "arm",
+        _             => $"unknown(0x{cpuType:x})"
+    };
+
+    private static bool TryReadExact(Stream stream, Span<byte> buffer)
+    {
+        int read = 0;
+        while (read < buffer.Length)
+        {
+            int n = stream.Read(buffer[read..]);
+            if (n == 0)
+                return false;
+            read += n;
+        }
+        return true;
     }
 
     private static IEnumerable<string> CandidatePaths(string? requestedPath)
@@ -126,6 +199,4 @@ internal sealed class GameLayout
 
         return path;
     }
-
-    private static string Quote(string value) => "\"" + value.Replace("\"", "\\\"") + "\"";
 }

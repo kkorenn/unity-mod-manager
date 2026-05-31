@@ -34,11 +34,12 @@ struct ContentView: View {
         .frame(width: 540, height: 660)
         .overlay { if service.busy { busyOverlay } }
         .task { await service.refresh() }
-        .onChange(of: tab) { _, newTab in
-            Task {
-                if newTab == .mods { await service.listMods() }
-                if newTab == .log { await service.showLog() }
-            }
+        // .task(id:) (macOS 12+) stands in for the macOS-14-only two-param
+        // onChange so one binary runs on Ventura (13) through Tahoe (26). Fires
+        // on appear (tab == .install, no-op) and on every tab switch.
+        .task(id: tab) {
+            if tab == .mods { await service.listMods() }
+            if tab == .log { await service.showLog() }
         }
         .confirmationDialog(
             confirm?.title ?? "",
