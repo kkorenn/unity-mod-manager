@@ -1,0 +1,24 @@
+UnityModManagerMac/NativeUmm/src/GameLayout.cs
+  s_2277d6588406da::t_546bf4b4a71878 55,63-144
+  s_2277d6588406da::t_b11d67c322a65b 1
+UnityModManagerMac/UnityModManagerMac.xcodeproj/project.pbxproj
+  s_2277d6588406da::t_36f0a612bba6b8 334,391,468,488
+UnityModManagerMac/UnityModManagerMac/ContentView.swift
+  s_2277d6588406da::t_6d757efe26fcee 37-42
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "27ae5a99e5b8eb9d0a152f530284a5559523e49e",
+  "prompts": {},
+  "sessions": {
+    "s_2277d6588406da": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e347d78a-7912-417e-a0fc-6b76dbca5aaf",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "koren <131921956+kkorenn@users.noreply.github.com>"
+    }
+  }
+}
