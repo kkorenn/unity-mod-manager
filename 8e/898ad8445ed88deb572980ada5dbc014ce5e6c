@@ -1,0 +1,58 @@
+UnityModManagerMac/UnityModManagerMac/Settings.swift
+  s_3e41a7da3833b5::t_7edf09e91633cb 1-58
+UnityModManager/Injector.cs
+  s_f4f76ba111ab14::t_2d4e36fd84f5c5 6,8,20-22,36-214
+UnityModManagerMac/UnityModManagerMac/ContentView.swift
+  s_3e41a7da3833b5::t_5c30259e5e9f71 19,30-31
+  s_797fceda09a668::t_10192d37ce2e34 136,149-152,154-155,162,172,176
+  s_3e41a7da3833b5::t_608f5675465f5b 114-124,126-129,131-134,137-139
+  s_3e41a7da3833b5::t_d6520a483172b0 40
+  s_3e41a7da3833b5::t_f7b792289f66bb 498-566
+  s_3e41a7da3833b5::t_64f80ac75e3afb 100
+  s_3e41a7da3833b5::t_37bb4188a22a05 164-165,233-268
+  s_3e41a7da3833b5::t_89a358dc3443b6 15,24
+  s_797fceda09a668::t_b72c56c8302cf5 153,156-158,170-171
+  s_3e41a7da3833b5::t_ab8e143c8a4991 173,184-231
+UnityModManagerMac/UnityModManagerMac/UpdateService.swift
+  s_3e41a7da3833b5::t_ecb2c40d6dbc72 1-13,15-30,40-62,79,81,85-93,99-307
+  s_3e41a7da3833b5::t_7c737ad1ec1b27 14
+  s_3e41a7da3833b5::t_954de2b36fa96b 31-39
+  s_3e41a7da3833b5::t_10624904fd5093 63-78,80,82-84
+  s_3e41a7da3833b5::t_0002f658e82b30 94-98
+UnityModManagerMac/UnityModManagerMac/InstallerService.swift
+  s_3e41a7da3833b5::t_9aafea8cfabec4 91,94-99,108-116
+"NativeMacUMM/dist/Unity Mod Manager ADOFAI.app/Contents/_CodeSignature/CodeResources"
+  s_f4f76ba111ab14::t_376625f2563372 17-28,31-34,49,53,61,85-105,112-118,144,151,165
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "8e898ad8445ed88deb572980ada5dbc014ce5e6c",
+  "prompts": {},
+  "sessions": {
+    "s_3e41a7da3833b5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c8aad591-d0ad-4bab-869c-1dcba6cb0bec",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "koren <131921956+kkorenn@users.noreply.github.com>"
+    },
+    "s_797fceda09a668": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e8766-d730-7ac3-9fdb-628c86888e16",
+        "model": "gpt-5.5"
+      },
+      "human_author": "koren <131921956+kkorenn@users.noreply.github.com>"
+    },
+    "s_f4f76ba111ab14": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e96f1-0566-7ae0-8105-96d04917f447",
+        "model": "gpt-5.5"
+      },
+      "human_author": "koren <131921956+kkorenn@users.noreply.github.com>"
+    }
+  }
+}
