@@ -88,7 +88,14 @@ final class InstallerService: ObservableObject {
     @Published var busy = false
 
     /// User-selected game .app path; nil lets the core auto-detect Steam installs.
+    /// Persisted so a manual choice survives relaunch.
     @Published var gamePath: String?
+
+    private static let gamePathKey = "selectedGamePath"
+
+    init() {
+        gamePath = UserDefaults.standard.string(forKey: Self.gamePathKey)
+    }
 
     /// True inside Xcode's SwiftUI Preview / Playground JIT environment, which
     /// can't host the NativeAOT runtime — native calls are skipped there.
@@ -98,6 +105,15 @@ final class InstallerService: ObservableObject {
     }()
 
     func refresh() async { await run("status") }
+
+    /// Set (or clear, with nil) the manual game path, persist it, and re-detect.
+    func setGamePath(_ path: String?) async {
+        gamePath = path
+        let defaults = UserDefaults.standard
+        if let path { defaults.set(path, forKey: Self.gamePathKey) }
+        else { defaults.removeObject(forKey: Self.gamePathKey) }
+        await refresh()
+    }
     func install(force: Bool) async { await run("install", force: force) }
     func uninstall() async { await run("remove") }
     func restoreOriginal() async { await run("restore") }

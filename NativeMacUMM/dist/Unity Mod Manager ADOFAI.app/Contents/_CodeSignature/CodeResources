@@ -14,7 +14,23 @@
 		</data>
 		<key>Resources/Payload/Managed/UnityModManager/UnityModManager.dll</key>
 		<data>
+		aRNSQDRaxwZayMmmJyOBbGiRQVc=
+		</data>
+		<key>Resources/Payload/Managed/UnityModManager/UnityModManager.dll.pre_fn_numeric_map_20260415_183030</key>
+		<data>
+		chJAw30nyisidkfvjbQOBkN8qhY=
+		</data>
+		<key>Resources/Payload/Managed/UnityModManager/UnityModManager.dll.pre_tab_explicitmap_20260415_181947</key>
+		<data>
+		+qTaID77GfrICxx6CePwMcNqKzA=
+		</data>
+		<key>Resources/Payload/Managed/UnityModManager/UnityModManager.dll.pre_tab_fix_20260415_180518</key>
+		<data>
 		o47tBRfOB7+EVm3QrSdrGc4VR7Y=
+		</data>
+		<key>Resources/Payload/Managed/UnityModManager/UnityModManager.dll.pre_tab_gatefix_20260415_181220</key>
+		<data>
+		WiVsykvSRkPvd/KPgtIQaEjfEpA=
 		</data>
 		<key>Resources/Payload/Managed/UnityModManager/UnityModManager.xml</key>
 		<data>
@@ -30,11 +46,11 @@
 		</data>
 		<key>Resources/Payload/Mods/MacQOL/MacQOL.config.json</key>
 		<data>
-		4GK6DIAPtmcbSqioC7Nf7yDEcbs=
+		NtbP+AMW+ZfC7kipndwJv2LW0Gc=
 		</data>
 		<key>Resources/Payload/Mods/MacQOL/MacQOL.cs</key>
 		<data>
-		9XUf+BWMdbDF+xkEWbCZtUalVbY=
+		bNj4YRfMdopxjmMDFjzgkp35i/4=
 		</data>
 		<key>Resources/Payload/Mods/MacQOL/MacQOL.dll</key>
 		<data>
@@ -42,7 +58,7 @@
 		</data>
 		<key>Resources/Payload/Mods/MacQOL/Settings.xml</key>
 		<data>
-		tBhpdcU7SwOR32r5xaN/8YLON6U=
+		iLDPfl5ThGxZkFg49GWCTp9R3Jg=
 		</data>
 		<key>Resources/Payload/README.txt</key>
 		<data>
@@ -69,7 +85,35 @@
 		<dict>
 			<key>hash2</key>
 			<data>
+			RduQRyKZTbONGxWKm+qKHhKWVG4Hl9XbHtkm9Ll1suY=
+			</data>
+		</dict>
+		<key>Resources/Payload/Managed/UnityModManager/UnityModManager.dll.pre_fn_numeric_map_20260415_183030</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			BkhEta3gh3EhR/UyBO44v5KsPzXJnHp5lggWq8H7TEU=
+			</data>
+		</dict>
+		<key>Resources/Payload/Managed/UnityModManager/UnityModManager.dll.pre_tab_explicitmap_20260415_181947</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			ny9g4VkldwqK2HFOXy5g/Y2Oaac4371RHur1ljwWMF8=
+			</data>
+		</dict>
+		<key>Resources/Payload/Managed/UnityModManager/UnityModManager.dll.pre_tab_fix_20260415_180518</key>
+		<dict>
+			<key>hash2</key>
+			<data>
 			eg6j1Ci72eE/Q59yeEPYhSedrX19gfU3Ap1XBg68524=
+			</data>
+		</dict>
+		<key>Resources/Payload/Managed/UnityModManager/UnityModManager.dll.pre_tab_gatefix_20260415_181220</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			2VNp2+cw9qPMbXcdqtxZPx5MSLDYgCo9BI5QO7WkzNk=
 			</data>
 		</dict>
 		<key>Resources/Payload/Managed/UnityModManager/UnityModManager.xml</key>
@@ -97,14 +141,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			VdnezeG/FwMWkXBW1SQDla2MG8BNjl0f1jQhctguxBI=
+			VTMNV5PJOqrKV1TGnu3pTeWDHTC8BqO16d7jQyVE2Uc=
 			</data>
 		</dict>
 		<key>Resources/Payload/Mods/MacQOL/MacQOL.cs</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			GAItMd/zy0vu5V+2TSZkfnP3W20rajDmEqj5ukW2WA8=
+			HpUR+xx9goLvF+XLK7kHxk+T+SiPlHfBT5E1CvKaGfU=
 			</data>
 		</dict>
 		<key>Resources/Payload/Mods/MacQOL/MacQOL.dll</key>
@@ -118,7 +162,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			fU6v+f2Qg5wE6Vvv6KUiPd2SKHprll5bbuRMMUTnw4Q=
+			1cbqJRnZgohRliDMRAvhbjEirr2so7Vr1jr5Fd00U4Y=
 			</data>
 		</dict>
 		<key>Resources/Payload/README.txt</key>

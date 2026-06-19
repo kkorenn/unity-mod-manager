@@ -11,6 +11,12 @@
       "name": "YoutubeStream",
       "description": "If you put a YouTube link in your level file, it will temporarily store the song in memory and stream it the moment the level is played. The player must also have this mod enabled and be connected to the internet.",
       "url": "https://bot.adofai.gg/api/mods/YoutubeStream?download=true"
+    },
+    {
+      "id": "XPerfect",
+      "name": "XPerfect",
+      "description": "Adds detailed judgments",
+      "url": "https://github.com/8100print/XPerfect/releases/latest/download/XPerfect.zip"
     }
   ]
 }

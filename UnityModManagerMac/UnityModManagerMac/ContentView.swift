@@ -12,20 +12,23 @@ import UniformTypeIdentifiers
 
 struct ContentView: View {
     @StateObject private var service = InstallerService()
+    @StateObject private var updater = UpdateService()
     @State private var tab = Tab.install
     @State private var confirm: ConfirmAction?
 
-    enum Tab: Hashable { case install, mods, log }
+    enum Tab: Hashable { case install, mods, log, settings }
 
     var body: some View {
         VStack(spacing: 0) {
             TabView(selection: $tab) {
-                InstallTab(service: service, confirm: $confirm)
+                InstallTab(service: service, updater: updater, confirm: $confirm)
                     .tabItem { Text("Install") }.tag(Tab.install)
                 ModsTab(service: service)
                     .tabItem { Text("Mods") }.tag(Tab.mods)
                 LogTab(service: service)
                     .tabItem { Text("Log") }.tag(Tab.log)
+                SettingsTab(updater: updater)
+                    .tabItem { Text("Settings") }.tag(Tab.settings)
             }
             .padding(12)
 
@@ -34,6 +37,7 @@ struct ContentView: View {
         .frame(width: 540, height: 660)
         .overlay { if service.busy { busyOverlay } }
         .task { await service.refresh() }
+        .task { await updater.autoCheck() }
         // .task(id:) (macOS 12+) stands in for the macOS-14-only two-param
         // onChange so one binary runs on Ventura (13) through Tahoe (26). Fires
         // on appear (tab == .install, no-op) and on every tab switch.
@@ -93,6 +97,7 @@ struct ContentView: View {
 
 private struct InstallTab: View {
     @ObservedObject var service: InstallerService
+    @ObservedObject var updater: UpdateService
     @Binding var confirm: ConfirmAction?
     @State private var recommended: [RecommendedMod] = []
     @State private var selected: Set<String> = []
@@ -106,28 +111,32 @@ private struct InstallTab: View {
     }
 
     var body: some View {
-        VStack(spacing: 12) {
-            Button { Task { await service.install(force: false) } } label: {
-                Text(installed ? "Reinstall / Repair" : "Install")
-                    .font(.title3).bold()
-                    .frame(maxWidth: .infinity, minHeight: 36)
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(!service.detected)
+        ScrollView {
+            VStack(spacing: 12) {
+                if updater.available != nil { updateBanner }
 
-            Button { askUninstall() } label: {
-                Text("Uninstall").frame(maxWidth: .infinity, minHeight: 24)
-            }
-            .disabled(!installed)
+                Button { Task { await service.install(force: false) } } label: {
+                    Text(installed ? "Reinstall / Repair" : "Install")
+                        .font(.title3).bold()
+                        .frame(maxWidth: .infinity, minHeight: 36)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!service.detected)
 
-            Button { askRestore() } label: {
-                Text("Restore original files").frame(maxWidth: .infinity, minHeight: 24)
-            }
-            .disabled(!hasBackup)
+                Button { askUninstall() } label: {
+                    Text("Uninstall").frame(maxWidth: .infinity, minHeight: 24)
+                }
+                .disabled(!installed)
 
-            versionHomeRow
-            recommendedBox
-            Spacer(minLength: 0)
+                Button { askRestore() } label: {
+                    Text("Restore original files").frame(maxWidth: .infinity, minHeight: 24)
+                }
+                .disabled(!hasBackup)
+
+                folderVersionRow
+                recommendedBox
+            }
+            .padding(.vertical, 2)
         }
         .onAppear {
             if recommended.isEmpty {
@@ -137,23 +146,126 @@ private struct InstallTab: View {
         }
     }
 
+    private var folderVersionRow: some View {
+        HStack(alignment: .top, spacing: 12) {
+            gameFolderBox
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .layoutPriority(1)
+
+            versionHomeRow
+                .frame(width: 168, alignment: .top)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     private var versionHomeRow: some View {
-        HStack(alignment: .center) {
+        VStack(alignment: .leading, spacing: 8) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("Current Version: \(service.bundledVersion ?? "—")")
+                Text("App Version: \(updater.currentVersion)")
+                Text("UMM Version: \(service.bundledVersion ?? "—")")
                 Text("Ingame Version: \(ingameVersion)")
             }
             .font(.caption)
             .foregroundStyle(.secondary)
-            Spacer()
+            .lineLimit(1)
+            .minimumScaleFactor(0.9)
+            .frame(maxWidth: .infinity, alignment: .leading)
+
             Button { openHomePage() } label: {
                 Text("Home Page")
-                    .frame(minWidth: 96)
+                    .frame(maxWidth: .infinity)
                     .foregroundStyle(.white)
             }
             .buttonStyle(.borderedProminent)
             .tint(.green)
         }
+    }
+
+    /// Shows the detected/selected game location and lets the user override it.
+    private var gameFolderBox: some View {
+        GroupBox("Game folder") {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 6) {
+                    Image(systemName: service.detected ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                        .foregroundStyle(service.detected ? .green : .orange)
+                    Text(folderStatus)
+                        .font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                }
+                Text(gamePathDisplay)
+                    .font(.system(.caption2, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1).truncationMode(.middle)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                HStack {
+                    Button("Choose…") { chooseGameFolder() }
+                    Button("Auto-detect") { Task { await service.setGamePath(nil) } }
+                        .disabled(service.gamePath == nil)
+                    Spacer()
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var folderStatus: String {
+        if !service.detected { return "Not detected — choose the game .app below" }
+        return service.gamePath != nil ? "Set manually" : "Auto-detected"
+    }
+
+    private var gamePathDisplay: String {
+        service.gamePath ?? service.status?.appPath ?? service.status?.gameRoot ?? "—"
+    }
+
+    private func chooseGameFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true            // the game .app (a package)
+        panel.canChooseDirectories = true      // …or its containing folder
+        panel.allowsMultipleSelection = false
+        panel.treatsFilePackagesAsDirectories = false // select the .app as one item
+        panel.allowedContentTypes = [.application]
+        panel.prompt = "Select"
+        panel.message = "Select 'A Dance of Fire and Ice.app' or the folder that contains it."
+        if panel.runModal() == .OK, let url = panel.url {
+            Task { await service.setGamePath(url.path) }
+        }
+    }
+
+    /// Shown only when GitHub has a release newer than this app.
+    private var updateBanner: some View {
+        let upd = updater.available
+        return HStack(spacing: 10) {
+            Image(systemName: "arrow.down.circle.fill")
+                .foregroundStyle(.tint)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Update available: \(upd?.tag ?? "")").bold()
+                switch updater.phase {
+                case .downloading:
+                    Text("Downloading…").font(.caption).foregroundStyle(.secondary)
+                case .installing:
+                    Text("Installing — the app will relaunch.").font(.caption).foregroundStyle(.secondary)
+                case .failed(let why):
+                    Text(why).font(.caption).foregroundStyle(.red).lineLimit(2)
+                case .idle:
+                    Text("Version \(upd?.version ?? "") is newer than \(updater.currentVersion).")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            switch updater.phase {
+            case .downloading, .installing:
+                ProgressView().controlSize(.small)
+            case .failed:
+                Button("Open Page") { updater.openReleasePage() }
+                    .buttonStyle(.bordered).controlSize(.small)
+            case .idle:
+                Button("Update Now") { Task { await updater.update() } }
+                    .buttonStyle(.borderedProminent).controlSize(.small)
+            }
+        }
+        .padding(10)
+        .background(.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
     }
 
     private var recommendedBox: some View {
@@ -379,6 +491,75 @@ private struct LogTab: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .background(.black.opacity(0.04), in: RoundedRectangle(cornerRadius: 8))
+        }
+    }
+}
+
+// MARK: - Settings tab
+
+private struct SettingsTab: View {
+    @ObservedObject var updater: UpdateService
+    @AppStorage(SettingsKey.autoUpdate) private var autoUpdate = true
+    @AppStorage(SettingsKey.frequency) private var frequencyRaw = UpdateFrequency.onLaunch.rawValue
+    @State private var launchAtLogin = LoginItem.isEnabled
+    @State private var loginError: String?
+
+    var body: some View {
+        Form {
+            Section("Updates") {
+                Toggle("Check for updates automatically", isOn: $autoUpdate)
+
+                Picker("Check", selection: $frequencyRaw) {
+                    ForEach(UpdateFrequency.allCases) { freq in
+                        Text(freq.label).tag(freq.rawValue)
+                    }
+                }
+                .disabled(!autoUpdate)
+
+                HStack(spacing: 8) {
+                    Button("Check Now") { Task { await updater.check() } }
+                        .disabled(updater.checking)
+                    if updater.checking { ProgressView().controlSize(.small) }
+                    Spacer()
+                    Text(checkStatus).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+
+            Section("General") {
+                Toggle("Launch at login", isOn: $launchAtLogin)
+                if let loginError {
+                    Text(loginError).font(.caption).foregroundStyle(.red)
+                }
+            }
+
+            Section {
+                LabeledContent("App Version", value: updater.currentVersion)
+            }
+        }
+        .formStyle(.grouped)
+        // .task(id:) (macOS 12+) instead of the macOS-14-only two-param onChange,
+        // matching the rest of the app. Fires on appear (no-op: guard matches the
+        // live status) and whenever the toggle flips.
+        .task(id: launchAtLogin) { applyLoginItem(launchAtLogin) }
+    }
+
+    private var checkStatus: String {
+        if updater.checking { return "Checking…" }
+        if updater.available != nil { return "Update available" }
+        if let date = updater.lastCheckedAt {
+            return "Up to date · checked \(date.formatted(.relative(presentation: .named)))"
+        }
+        return ""
+    }
+
+    private func applyLoginItem(_ on: Bool) {
+        guard on != LoginItem.isEnabled else { return } // skip the on-appear no-op
+        do {
+            try LoginItem.set(on)
+            loginError = nil
+        } catch {
+            loginError = "Couldn't \(on ? "enable" : "disable") launch at login: \(error.localizedDescription)"
+            launchAtLogin = LoginItem.isEnabled // snap the toggle back to reality
         }
     }
 }

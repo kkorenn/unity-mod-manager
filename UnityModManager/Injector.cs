@@ -3,7 +3,9 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
+using System.Threading;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using HarmonyLib;
 
 namespace UnityModManagerNet
@@ -13,6 +15,9 @@ namespace UnityModManagerNet
         public static void Run(bool doorstop = false)
         {
             if (UnityModManager.initialized)
+                return;
+
+            if (DeferredStart.ShouldDefer() && DeferredStart.Schedule(doorstop))
                 return;
 
             try
@@ -27,6 +32,186 @@ namespace UnityModManagerNet
         }
 
         private static bool startUiWithManager;
+
+        private static class DeferredStart
+        {
+            private static readonly object Lock = new object();
+            private static bool pending;
+            private static bool pendingDoorstop;
+            private static bool sceneHooked;
+            private static bool beforeRenderHooked;
+            private static bool postQueued;
+            private static SynchronizationContext unityContext;
+
+            internal static bool ShouldDefer()
+            {
+                try
+                {
+                    return Time.frameCount <= 0;
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+
+            internal static bool Schedule(bool doorstop)
+            {
+                lock (Lock)
+                {
+                    if (pending)
+                        return true;
+
+                    pending = true;
+                    pendingDoorstop = doorstop;
+                    unityContext = SynchronizationContext.Current;
+                }
+
+                Console.WriteLine("[Manager] Unity frame 0 detected. Deferring mod loading until Unity is ready.");
+
+                var armed = false;
+
+                try
+                {
+                    SceneManager.sceneLoaded += OnSceneLoaded;
+                    sceneHooked = true;
+                    armed = true;
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("[Manager] SceneManager defer hook failed: " + e.Message);
+                }
+
+                try
+                {
+                    Application.onBeforeRender += OnBeforeRender;
+                    beforeRenderHooked = true;
+                    armed = true;
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("[Manager] onBeforeRender defer hook failed: " + e.Message);
+                }
+
+                if (unityContext != null)
+                {
+                    armed = true;
+                    QueueContextCheck();
+                }
+
+                if (armed)
+                    return true;
+
+                lock (Lock)
+                {
+                    pending = false;
+                }
+                return false;
+            }
+
+            private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+            {
+                TryStart("sceneLoaded");
+            }
+
+            private static void OnBeforeRender()
+            {
+                TryStart("onBeforeRender");
+            }
+
+            private static void QueueContextCheck()
+            {
+                lock (Lock)
+                {
+                    if (!pending || postQueued || unityContext == null)
+                        return;
+
+                    postQueued = true;
+                }
+
+                ThreadPool.QueueUserWorkItem(_ =>
+                {
+                    Thread.Sleep(50);
+                    var context = unityContext;
+                    if (context == null)
+                    {
+                        lock (Lock)
+                        {
+                            postQueued = false;
+                        }
+                        return;
+                    }
+
+                    context.Post(__ =>
+                    {
+                        lock (Lock)
+                        {
+                            postQueued = false;
+                        }
+                        TryStart("syncContext");
+                    }, null);
+                });
+            }
+
+            private static void TryStart(string source)
+            {
+                lock (Lock)
+                {
+                    if (!pending)
+                        return;
+
+                    if (unityContext == null)
+                        unityContext = SynchronizationContext.Current;
+                }
+
+                if (!IsReady())
+                {
+                    QueueContextCheck();
+                    return;
+                }
+
+                bool doorstop;
+                lock (Lock)
+                {
+                    if (!pending)
+                        return;
+
+                    pending = false;
+                    doorstop = pendingDoorstop;
+                }
+
+                Cleanup();
+                Console.WriteLine($"[Manager] Deferred mod loading continues after {source} at frame {Time.frameCount}.");
+                Run(doorstop);
+            }
+
+            private static bool IsReady()
+            {
+                try
+                {
+                    return Time.frameCount > 0;
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+
+            private static void Cleanup()
+            {
+                if (sceneHooked)
+                {
+                    SceneManager.sceneLoaded -= OnSceneLoaded;
+                    sceneHooked = false;
+                }
+
+                if (beforeRenderHooked)
+                {
+                    Application.onBeforeRender -= OnBeforeRender;
+                    beforeRenderHooked = false;
+                }
+            }
+        }
 
         private static void _Run(bool doorstop)
         {
