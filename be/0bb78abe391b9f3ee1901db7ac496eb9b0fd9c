@@ -1,0 +1,41 @@
+UnityModManagerMac/UnityModManagerMac/UpdateService.swift
+  s_ebd1f9e2ba55c0::t_92ff3119d3eb7b 116-120
+  s_ebd1f9e2ba55c0::t_605afdc28a6bc9 161-162
+UnityModManagerMac/NativeUmm/src/ModManager.cs
+  s_ebd1f9e2ba55c0::t_a7170d984e6535 3-4,8-12,21-22,34-130,134-151
+  s_ebd1f9e2ba55c0::t_23e3390e8c6dbf 186-187,193-194
+  s_ebd1f9e2ba55c0::t_c7b1d7ea36f35a 152
+UnityModManagerMac/UnityModManagerMac/ContentView.swift
+  s_ebd1f9e2ba55c0::t_bfd1a96a170a73 428-454
+  s_ebd1f9e2ba55c0::t_02cb1bbe467c0b 368-370
+UnityModManager/UnityModManager.csproj
+  s_ebd1f9e2ba55c0::t_f37e2028f40a2c 13,20-21
+UnityModManagerMac/UnityModManagerMac/InstallerService.swift
+  s_ebd1f9e2ba55c0::t_affcf260565f28 49-67,77,82-83,86
+UnityModManagerMac/UnityModManagerMacTests/UnityModManagerMacTests.swift
+  s_ebd1f9e2ba55c0::t_589d69691d5e0e 8,14-35,37,39-71
+UnityModManagerMac/NativeUmm/src/Exports.cs
+  s_ebd1f9e2ba55c0::t_32618ab6e5e839 178-191
+UnityModManagerMac/UnityModManagerMac.xcodeproj/project.pbxproj
+  s_ebd1f9e2ba55c0::t_8e9542244b7ec5 407,417,438,448,466,469,486,489,505,507,523,525
+UnityModManager/UI.cs
+  s_ebd1f9e2ba55c0::t_19857d9597f394 784-790
+UnityModManagerApp/Updates.cs
+  s_ebd1f9e2ba55c0::t_b41550158705ba 87
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "be0bb78abe391b9f3ee1901db7ac496eb9b0fd9c",
+  "prompts": {},
+  "sessions": {
+    "s_ebd1f9e2ba55c0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "df781d00-bb67-44e7-afcc-d13623a3ec43",
+        "model": "claude-opus-5"
+      },
+      "human_author": "koren <131921956+kkorenn@users.noreply.github.com>"
+    }
+  }
+}
