@@ -5,10 +5,6 @@ features:
 
 get the latest in releases at the right!!
 
-<img width="553" height="751" alt="image" src="https://github.com/user-attachments/assets/3a8f4607-9542-420f-bef3-935525505e35" />
-<img width="557" height="751" alt="image" src="https://github.com/user-attachments/assets/e04a942f-26e6-4481-8f2d-0efb85d76657" />
-
-
 original readme:
 # unity-mod-manager
 This mod adds modding support for games created on Unity engine.
