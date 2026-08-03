@@ -1,0 +1,21 @@
+UnityModManager/UI.cs
+  s_ebd1f9e2ba55c0::t_63eb42fafa4197 787-789
+UnityModManagerApp/Updates.cs
+  s_ebd1f9e2ba55c0::t_63eb42fafa4197 10-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "83e3618d488749b4a34a5cbe35038b424444a835",
+  "prompts": {},
+  "sessions": {
+    "s_ebd1f9e2ba55c0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "df781d00-bb67-44e7-afcc-d13623a3ec43",
+        "model": "claude-opus-5"
+      },
+      "human_author": "koren <131921956+kkorenn@users.noreply.github.com>"
+    }
+  }
+}
