@@ -7,6 +7,8 @@ using Newtonsoft.Json;
 using System.Net;
 using System.Net.NetworkInformation;
 using UnityModManagerNet.ConsoleInstaller;
+using System.Security.Policy;
+using System.Net.Cache;
 
 namespace UnityModManagerNet.Installer
 {

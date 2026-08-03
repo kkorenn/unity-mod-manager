@@ -784,9 +784,9 @@ namespace UnityModManagerNet
                                         var ver = item.Value;
                                         var foundMod = FindMod(id);
                                         mJoinList.Add(
-                                            foundMod == null ? "<color=\"#CD5C5C\">" + id + " (Missing)</color> " :
-                                            !foundMod.Active ? "<color=\"#CD5C5C\">" + id + " (Inactive)</color> " :
-                                            (ver != null && ver > foundMod.Version) ? "<color=\"#CD5C5C\">" + id + " (Outdated)</color> " :
+                                            foundMod == null ? "<color=\"#CD5C5C\">" + id + " (Missing)</color> " : 
+                                            !foundMod.Active ? "<color=\"#CD5C5C\">" + id + " (Inactive)</color> " : 
+                                            (ver != null && ver > foundMod.Version) ? "<color=\"#CD5C5C\">" + id + " (Outdated)</color> " : 
                                             id);
                                     }
                                     GUILayout.Label(string.Join(", ", mJoinList.ToArray()));
