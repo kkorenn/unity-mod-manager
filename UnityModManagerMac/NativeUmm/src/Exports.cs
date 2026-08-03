@@ -175,6 +175,20 @@ public static unsafe class Exports
                     w.WriteString("path", mod.Path);
                     w.WriteString("status", mod.Status);
                     w.WriteBoolean("installed", mod.Installed);
+                    if (mod.Requirements.Count > 0)
+                    {
+                        w.WriteStartArray("requirements");
+                        foreach (var req in mod.Requirements)
+                        {
+                            w.WriteStartObject();
+                            w.WriteString("id", req.Id);
+                            if (req.Version is not null)
+                                w.WriteString("version", req.Version);
+                            w.WriteString("state", req.State);
+                            w.WriteEndObject();
+                        }
+                        w.WriteEndArray();
+                    }
                     w.WriteEndObject();
                 }
                 w.WriteEndArray();

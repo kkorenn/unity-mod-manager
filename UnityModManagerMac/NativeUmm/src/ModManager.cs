@@ -1,7 +1,14 @@
 using System.IO.Compression;
 using System.Text.Json;
+using System.Text.RegularExpressions;
+using System.Xml.Linq;
 
 namespace NativeUmm;
+
+/// A single entry of a mod's Info.json "Requirements", resolved against what is
+/// actually present in Mods/. State mirrors the in-game manager's tags:
+/// "OK" | "Missing" | "Inactive" | "Outdated".
+internal sealed record ModRequirement(string Id, string? Version, string State);
 
 internal sealed record ModInfo(
     string Id,
@@ -11,7 +18,8 @@ internal sealed record ModInfo(
     string? HomePage,
     string Status,
     string Path,
-    bool Installed);
+    bool Installed,
+    IReadOnlyList<ModRequirement> Requirements);
 
 /// Lists and installs UMM mods under the game's Mods/ folder — mirrors the
 /// "Mods" tab of the original Windows installer.
@@ -23,7 +31,123 @@ internal static class ModManager
         AddFrom(result, layout.ModsPath, installed: true);
         AddFrom(result, AppData.RemovedMods, installed: false);
         result.Sort((a, b) => string.Compare(a.DisplayName, b.DisplayName, StringComparison.OrdinalIgnoreCase));
+        ResolveRequirements(result, ReadDisabledIds(layout));
         return result;
+    }
+
+    // MARK: requirements
+
+    /// Matches UMM's own requirement syntax: "ModId-1.2.3" carries a minimum
+    /// version, a bare "ModId" does not.
+    private static readonly Regex RequirementRegex = new(@"(.*)-(\d+\.\d+\.\d+).*", RegexOptions.Compiled);
+
+    /// Fills in each requirement's State now that the whole mod set is known.
+    /// Mirrors the in-game manager's precedence: missing beats inactive beats
+    /// outdated. Here "inactive" covers both a mod the user disabled in-game and
+    /// one they uninstalled into the removed-mods backup — neither loads.
+    private static void ResolveRequirements(List<ModInfo> mods, HashSet<string> disabledIds)
+    {
+        var byId = new Dictionary<string, ModInfo>(StringComparer.OrdinalIgnoreCase);
+        foreach (var mod in mods)
+            if (mod.Installed || !byId.ContainsKey(mod.Id))
+                byId[mod.Id] = mod;
+
+        for (var i = 0; i < mods.Count; i++)
+        {
+            if (mods[i].Requirements.Count == 0)
+                continue;
+
+            var resolved = new List<ModRequirement>(mods[i].Requirements.Count);
+            foreach (var req in mods[i].Requirements)
+            {
+                string state;
+                if (!byId.TryGetValue(req.Id, out var found))
+                    state = "Missing";
+                else if (!found.Installed || disabledIds.Contains(found.Id))
+                    state = "Inactive";
+                else if (req.Version is not null && CompareVersions(req.Version, found.Version) > 0)
+                    state = "Outdated";
+                else
+                    state = "OK";
+
+                resolved.Add(req with { State = state });
+            }
+
+            mods[i] = mods[i] with { Requirements = resolved };
+        }
+    }
+
+    /// Reads the mod on/off toggles the in-game manager persists next to its DLL.
+    /// Absent file (manager never launched) means nothing is disabled.
+    private static HashSet<string> ReadDisabledIds(GameLayout layout)
+    {
+        var disabled = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var paramsPath = System.IO.Path.Combine(layout.ManagerPath, "Params.xml");
+        if (!File.Exists(paramsPath))
+            return disabled;
+
+        try
+        {
+            foreach (var element in XDocument.Load(paramsPath).Descendants("Mod"))
+            {
+                var id = (string?)element.Attribute("Id");
+                if (string.IsNullOrEmpty(id))
+                    continue;
+                if (!bool.TryParse((string?)element.Attribute("Enabled") ?? "true", out var enabled) || !enabled)
+                    disabled.Add(id);
+            }
+        }
+        catch
+        {
+            // Unreadable Params.xml just means we can't tell — treat all as enabled.
+        }
+
+        return disabled;
+    }
+
+    private static List<ModRequirement> ParseRequirements(JsonElement element)
+    {
+        var result = new List<ModRequirement>();
+        if (!element.TryGetProperty("Requirements", out var array) || array.ValueKind != JsonValueKind.Array)
+            return result;
+
+        foreach (var item in array.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.String)
+                continue;
+            var raw = item.GetString();
+            if (string.IsNullOrWhiteSpace(raw))
+                continue;
+
+            var match = RequirementRegex.Match(raw);
+            var id = match.Success ? match.Groups[1].Value : raw;
+            var version = match.Success ? match.Groups[2].Value : null;
+            if (result.Any(r => r.Id.Equals(id, StringComparison.OrdinalIgnoreCase)))
+                continue;
+
+            result.Add(new ModRequirement(id, version, "OK"));
+        }
+
+        return result;
+    }
+
+    /// Lenient dotted-numeric compare (non-digits stripped per component), so the
+    /// tags agree with the in-game manager on versions like "1.2.0b".
+    private static int CompareVersions(string left, string right) =>
+        ToVersion(left).CompareTo(ToVersion(right));
+
+    private static Version ToVersion(string raw)
+    {
+        var parts = raw.Split('.');
+        var numbers = new int[4];
+        for (var i = 0; i < 4; i++)
+        {
+            if (i >= parts.Length)
+                break;
+            var digits = Regex.Replace(parts[i], @"\D", "");
+            numbers[i] = int.TryParse(digits, out var value) ? value : 0;
+        }
+        return new Version(numbers[0], numbers[1], numbers[2], numbers[3]);
     }
 
     private static void AddFrom(List<ModInfo> result, string root, bool installed)
@@ -59,13 +183,15 @@ internal static class ModManager
                 result.Add(new ModInfo(id, name, version,
                     string.IsNullOrEmpty(manager) ? null : manager,
                     string.IsNullOrEmpty(home) ? null : home,
-                    installed ? "OK" : "Uninstalled", dir, installed));
+                    installed ? "OK" : "Uninstalled", dir, installed,
+                    ParseRequirements(element)));
             }
             catch
             {
                 var name = Path.GetFileName(dir);
                 result.Add(new ModInfo(name, name, "", null, null,
-                    installed ? "Invalid Info.json" : "Uninstalled", dir, installed));
+                    installed ? "Invalid Info.json" : "Uninstalled", dir, installed,
+                    Array.Empty<ModRequirement>()));
             }
         }
     }

@@ -46,6 +46,25 @@ struct UmmLogLine: Decodable {
     var message: String
 }
 
+/// One entry of a mod's Info.json "Requirements", already resolved by the core
+/// against what's actually in Mods/.
+struct UmmRequirement: Decodable, Identifiable, Hashable {
+    let reqId: String
+    let version: String?
+    /// "OK" | "Missing" | "Inactive" | "Outdated" — mirrors the in-game tags.
+    let state: String
+
+    var id: String { reqId }
+    var isSatisfied: Bool { state == "OK" }
+
+    /// "SomeMod (Missing)" when unsatisfied, bare id when it's fine.
+    var label: String { isSatisfied ? reqId : "\(reqId) (\(state))" }
+
+    enum CodingKeys: String, CodingKey {
+        case reqId = "id", version, state
+    }
+}
+
 struct UmmMod: Decodable, Identifiable {
     let modId: String
     let name: String
@@ -55,13 +74,16 @@ struct UmmMod: Decodable, Identifiable {
     let homePage: String?
     let path: String?
     let installed: Bool?
+    let requirements: [UmmRequirement]?
 
     /// Unique per row (a mod can appear once installed, once removed).
     var id: String { path ?? modId }
     var isInstalled: Bool { installed ?? true }
+    var requirementList: [UmmRequirement] { requirements ?? [] }
+    var hasUnmetRequirements: Bool { requirementList.contains { !$0.isSatisfied } }
 
     enum CodingKeys: String, CodingKey {
-        case modId = "id", name, version, status, managerVersion, homePage, path, installed
+        case modId = "id", name, version, status, managerVersion, homePage, path, installed, requirements
     }
 }
 

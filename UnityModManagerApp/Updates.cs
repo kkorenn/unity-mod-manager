@@ -84,7 +84,7 @@ namespace UnityModManagerNet.Installer
         {
             if (e.Error != null)
             {
-                Log.Print(e.Error.Message);
+                Log.Print($"{e.Error.Message} {url}");
                 return;
             }
 

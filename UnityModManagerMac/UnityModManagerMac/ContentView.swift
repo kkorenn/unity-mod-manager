@@ -365,6 +365,9 @@ private struct ModsTab: View {
                 TableColumn("Manager") { mod in
                     Text(mod.managerVersion ?? "—").foregroundStyle(.secondary)
                 }.width(70)
+                TableColumn("Requirements") { mod in
+                    RequirementsCell(mod: mod)
+                }.width(min: 120, ideal: 160)
                 TableColumn("Status") { mod in
                     Text(mod.status).foregroundStyle(statusColor(mod))
                 }.width(90)
@@ -420,6 +423,33 @@ private struct ModsTab: View {
     private func statusColor(_ mod: UmmMod) -> Color {
         if !mod.isInstalled { return .secondary }
         return mod.status == "OK" ? .green : .orange
+    }
+
+    /// Comma-joined requirement ids, with unmet ones tagged and reddened the way
+    /// the in-game manager marks them (Missing / Inactive / Outdated).
+    private struct RequirementsCell: View {
+        let mod: UmmMod
+
+        var body: some View {
+            if mod.requirementList.isEmpty {
+                Text("—").foregroundStyle(.secondary)
+            } else {
+                Text(styled)
+                    .lineLimit(1)
+                    .help(mod.requirementList.map(\.label).joined(separator: ", "))
+            }
+        }
+
+        private var styled: AttributedString {
+            var line = AttributedString()
+            for (index, req) in mod.requirementList.enumerated() {
+                if index > 0 { line += AttributedString(", ") }
+                var piece = AttributedString(req.label)
+                if !req.isSatisfied { piece.foregroundColor = .red }
+                line += piece
+            }
+            return line
+        }
     }
 
     private var dropZone: some View {

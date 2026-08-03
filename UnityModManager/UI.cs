@@ -781,8 +781,13 @@ namespace UnityModManagerNet
                                     foreach (var item in mods[i].Requirements)
                                     {
                                         var id = item.Key;
-                                        var mod = FindMod(id);
-                                        mJoinList.Add(((mod == null || item.Value != null && item.Value > mod.Version || !mod.Active) && mods[i].Active) ? "<color=\"#CD5C5C\">" + id + "</color> " : id);
+                                        var ver = item.Value;
+                                        var foundMod = FindMod(id);
+                                        mJoinList.Add(
+                                            foundMod == null ? "<color=\"#CD5C5C\">" + id + " (Missing)</color> " :
+                                            !foundMod.Active ? "<color=\"#CD5C5C\">" + id + " (Inactive)</color> " :
+                                            (ver != null && ver > foundMod.Version) ? "<color=\"#CD5C5C\">" + id + " (Outdated)</color> " :
+                                            id);
                                     }
                                     GUILayout.Label(string.Join(", ", mJoinList.ToArray()));
                                     GUILayout.EndHorizontal();

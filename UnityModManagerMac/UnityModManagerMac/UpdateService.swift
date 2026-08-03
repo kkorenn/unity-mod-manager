@@ -113,7 +113,11 @@ final class UpdateService: ObservableObject {
                 pageURL: release.htmlURL.flatMap(URL.init(string:)),
                 notes: release.body ?? "")
         } catch {
-            // Offline / rate-limited / parse error: stay silent, just don't offer an update.
+            // Offline / rate-limited / parse error: stay silent in the UI, just
+            // don't offer an update. Log with the URL so a failing endpoint is
+            // identifiable from Console.app.
+            NSLog("UnityModManagerMac: update check failed: %@ %@",
+                  error.localizedDescription, Self.latestReleaseURL.absoluteString)
         }
     }
 
@@ -154,7 +158,8 @@ final class UpdateService: ObservableObject {
         req.timeoutInterval = 300
         let (tmp, response) = try await URLSession.shared.download(for: req)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            throw UpdateError("Download failed (HTTP \((response as? HTTPURLResponse)?.statusCode ?? -1)).")
+            // Name the URL that failed — a bad asset link is otherwise invisible.
+            throw UpdateError("Download failed (HTTP \((response as? HTTPURLResponse)?.statusCode ?? -1)): \(url.absoluteString)")
         }
         // Move to a stable .dmg path; the URLSession temp file is unsuffixed and short-lived.
         let dest = FileManager.default.temporaryDirectory
