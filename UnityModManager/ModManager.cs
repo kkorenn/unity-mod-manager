@@ -109,10 +109,19 @@ namespace UnityModManagerNet
             // killing any mod that uses a reverse patch (e.g. JALib). Forcing the
             // Cecil backend avoids the broken dynamic-method path. Set before any mod
             // (or UMM itself) patches; respect a value the user set explicitly.
-            if ((IsMacPlatform() || IsLinuxPlatform()) &&
-                string.IsNullOrEmpty(Environment.GetEnvironmentVariable("MONOMOD_DMD_TYPE")))
+            // Two spellings: legacy MonoMod (Harmony <= 2.2) reads MONOMOD_DMD_TYPE;
+            // reorganized MonoMod (Harmony >= 2.3, incl. bundled 2.4.2) reads
+            // MONOMOD_DMDType (ordinal match on "MONOMOD_" + switch name).
+            if (IsMacPlatform() || IsLinuxPlatform())
             {
-                Environment.SetEnvironmentVariable("MONOMOD_DMD_TYPE", "Cecil");
+                if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("MONOMOD_DMD_TYPE")))
+                {
+                    Environment.SetEnvironmentVariable("MONOMOD_DMD_TYPE", "Cecil");
+                }
+                if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("MONOMOD_DMDType")))
+                {
+                    Environment.SetEnvironmentVariable("MONOMOD_DMDType", "Cecil");
+                }
             }
 
             Logger.Clear();
@@ -255,6 +264,24 @@ namespace UnityModManagerNet
             else if (args.Name.StartsWith("0Harmony, Version=2."))
             {
                 filename = "0Harmony.dll";
+            }
+            else
+            {
+                // Generic fallback: satellite libraries shipped alongside UMM
+                // (e.g. MonoMod.*, Mono.Cecil for a thin Harmony build) live in
+                // Managed/UnityModManager/, which is not on Mono's default search
+                // path. Resolve by simple name if a matching dll exists there.
+                try
+                {
+                    var simpleName = new AssemblyName(args.Name).Name;
+                    if (!string.IsNullOrEmpty(simpleName))
+                    {
+                        filename = simpleName + ".dll";
+                    }
+                }
+                catch (Exception)
+                {
+                }
             }
 
             if (filename != null)
