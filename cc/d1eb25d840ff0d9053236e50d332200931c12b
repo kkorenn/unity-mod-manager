@@ -1,0 +1,19 @@
+NativeMacUMM/scripts/build_app.sh
+  s_23c971d5f3b37c::t_a849bc8585d982 42,44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "ccd1eb25d840ff0d9053236e50d332200931c12b",
+  "prompts": {},
+  "sessions": {
+    "s_23c971d5f3b37c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "82fbfd9d-3848-4782-879b-9c3c8ee7f7a0",
+        "model": "claude-opus-5"
+      },
+      "human_author": "koren <131921956+kkorenn@users.noreply.github.com>"
+    }
+  }
+}
